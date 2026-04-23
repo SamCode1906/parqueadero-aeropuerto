@@ -1,7 +1,8 @@
 const express = require('express');
 const router = express.Router();
-const ingresoController = require('../controllers/ingreso.controller');
+const ctrl = require('../controllers/ingreso.controller');
 
-router.post('/', ingresoController.registrarIngreso);
+// 🚪 registrar ingreso
+router.post('/', ctrl.registrarIngreso);
 
 module.exports = router;

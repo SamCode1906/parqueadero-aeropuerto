@@ -1,7 +1,8 @@
 const express = require('express');
 const router = express.Router();
-const salidaController = require('../controllers/salida.controller');
+const ctrl = require('../controllers/salida.controller');
 
-router.post('/', salidaController.registrarSalida);
+// 🚪 registrar salida
+router.post('/', ctrl.registrarSalida);
 
 module.exports = router;

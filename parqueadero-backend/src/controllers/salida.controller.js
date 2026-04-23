@@ -1,55 +1,35 @@
 const db = require('../config/db');
+const { calcularTarifa } = require('../utils/tarifa.util');
 
 exports.registrarSalida = (req, res) => {
   const { placa } = req.body;
 
-  if (!placa) {
-    return res.status(400).json({ msg: 'La placa es obligatoria' });
-  }
+  const sql = `SELECT * FROM movimientos WHERE placa = ? AND estado = 'activo'`;
 
-  // 1. Buscar ingreso activo
-  const sql = `
-    SELECT * FROM registros
-    WHERE placa = ? AND estado = 'activo'
-  `;
-
-  db.query(sql, [placa], (err, results) => {
-    if (err) return res.status(500).json(err);
-
-    if (results.length === 0) {
-      return res.status(400).json({ msg: 'No existe ingreso activo para este vehículo' });
+  db.query(sql, [placa], (err, result) => {
+    if (result.length === 0) {
+      return res.status(400).json({ msg: 'No hay ingreso activo' });
     }
 
-    const registro = results[0];
+    const registro = result[0];
 
-    const fechaIngreso = new Date(registro.fecha_ingreso);
-    const fechaSalida = new Date();
+    const horas = Math.ceil((new Date() - new Date(registro.hora_ingreso)) / 3600000);
 
-    // 2. Calcular tiempo
-    const diferenciaMs = fechaSalida - fechaIngreso;
-    const horas = Math.ceil(diferenciaMs / (1000 * 60 * 60));
+    const tarifaSql = `SELECT * FROM tarifas WHERE tipo = ?`;
 
-    // ⚠️ TEMPORAL (luego se conecta a tarifas)
-    const tarifaHora = 1000;
-    const valor = horas * tarifaHora;
+    db.query(tarifaSql, [registro.tipo], (err, tarifaRes) => {
+      const tarifa = tarifaRes[0];
 
-    // 3. Actualizar registro
-    const updateSql = `
-      UPDATE registros
-      SET fecha_salida = NOW(),
-          estado = 'finalizado',
-          valor_pagado = ?
-      WHERE id = ?
-    `;
+      const valor = calcularTarifa(horas, tarifa);
 
-    db.query(updateSql, [valor, registro.id], (err) => {
-      if (err) return res.status(500).json(err);
+      const update = `
+        UPDATE movimientos
+        SET hora_salida = NOW(), estado='finalizado', valor_pagado=?
+        WHERE id=?
+      `;
 
-      res.json({
-        msg: 'Salida registrada',
-        placa,
-        horas,
-        valor
+      db.query(update, [valor, registro.id], () => {
+        res.json({ placa, horas, valor });
       });
     });
   });

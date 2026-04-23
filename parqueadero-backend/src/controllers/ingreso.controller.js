@@ -1,35 +1,28 @@
 const db = require('../config/db');
 
 exports.registrarIngreso = (req, res) => {
-  const { placa } = req.body;
+  const { placa, tipo } = req.body;
 
-  if (!placa) {
-    return res.status(400).json({ msg: 'La placa es obligatoria' });
+  if (!placa || !tipo) {
+    return res.status(400).json({ msg: 'Datos incompletos' });
   }
 
-  // 1. Verificar si ya está dentro
-  const checkSql = 'SELECT * FROM registros WHERE placa = ? AND estado = "activo"';
+  const checkSql = `SELECT * FROM movimientos WHERE placa = ? AND estado = 'activo'`;
 
-  db.query(checkSql, [placa], (err, results) => {
-    if (err) return res.status(500).json(err);
-
-    if (results.length > 0) {
-      return res.status(400).json({ msg: 'El vehículo ya está dentro del parqueadero' });
+  db.query(checkSql, [placa], (err, result) => {
+    if (result.length > 0) {
+      return res.status(400).json({ msg: 'Vehículo ya está dentro' });
     }
 
-    // 2. Registrar ingreso
-    const insertSql = `
-      INSERT INTO registros (placa, fecha_ingreso, estado)
-      VALUES (?, NOW(), 'activo')
+    const sql = `
+      INSERT INTO movimientos (placa, hora_ingreso, estado, tipo)
+      VALUES (?, NOW(), 'activo', ?)
     `;
 
-    db.query(insertSql, [placa], (err, result) => {
+    db.query(sql, [placa, tipo], (err) => {
       if (err) return res.status(500).json(err);
 
-      res.json({
-        msg: 'Ingreso registrado correctamente',
-        placa
-      });
+      res.json({ msg: 'Ingreso registrado', placa });
     });
   });
 };

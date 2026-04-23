@@ -1,4 +1,3 @@
-require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 
@@ -7,11 +6,22 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-app.use('/api/auth', require('./src/routes/auth.routes'));
-app.use('/api/ingreso', require('./src/routes/ingreso.routes'));
-app.use('/api/tarifas', require('./src/routes/tarifas.routes'));
-app.use('/api/salida', require('./src/routes/salida.routes'));
+// rutas reales
+const authRoutes = require('../routes/auth.routes');
+const ingresoRoutes = require('../routes/ingreso.routes');
+const salidaRoutes = require('../routes/salida.routes');
+const tarifasRoutes = require('../routes/tarifas.routes');
 
-app.listen(process.env.PORT, () => {
-  console.log(`Servidor corriendo en puerto ${process.env.PORT}`);
+app.use('/api/auth', authRoutes);
+app.use('/api/ingresos', ingresoRoutes);
+app.use('/api/salidas', salidaRoutes);
+app.use('/api/tarifas', tarifasRoutes);
+
+// test opcional
+app.get('/test', (req, res) => {
+  res.send('Backend funcionando');
+});
+
+app.listen(3000, () => {
+  console.log('Servidor corriendo en puerto 3000');
 });
