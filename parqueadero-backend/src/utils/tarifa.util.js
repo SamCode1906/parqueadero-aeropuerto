@@ -1,17 +1,46 @@
-function calcularTarifa(horas, tarifa) {
+function calcularTarifa(tipoVehiculo, fechaIngreso, tarifaData) {
+  if (!fechaIngreso || !tarifaData) {
+    throw new Error('Fecha de ingreso y tarifa son requeridos');
+  }
 
-  if (horas <= 1) return tarifa.hora1;
+  const fechaSalida = new Date();
+  const ingreso = new Date(fechaIngreso);
+  
+  if (isNaN(ingreso.getTime())) {
+    throw new Error('Fecha de ingreso inválida');
+  }
 
-  if (horas <= 12) return tarifa.hora1 + (horas - 1) * tarifa.hora2_12;
+  let diferenciaMs = fechaSalida - ingreso;
+  
+  if (diferenciaMs < 0) {
+    throw new Error('La fecha de salida no puede ser anterior a la de ingreso');
+  }
 
-  if (horas <= 168) return tarifa.hora1 +
-    11 * tarifa.hora2_12 +
-    (horas - 12) * tarifa.hora13_168;
+  let totalHoras = Math.ceil(diferenciaMs / (1000 * 60 * 60));
+  
+  if (totalHoras < 1) {
+    totalHoras = 1;
+  }
 
-  return tarifa.hora1 +
-    11 * tarifa.hora2_12 +
-    156 * tarifa.hora13_168 +
-    (horas - 168) * tarifa.hora169;
+  let totalPagar = 0;
+
+  if (totalHoras === 1) {
+    totalPagar = parseFloat(tarifaData.primera_hora);
+  } else {
+    totalPagar = parseFloat(tarifaData.primera_hora);
+    const horasAdicionales = totalHoras - 1;
+    totalPagar += horasAdicionales * parseFloat(tarifaData.hora_adicional);
+  }
+
+  totalPagar = Math.round(totalPagar);
+
+  return {
+    totalHoras,
+    totalPagar,
+    tarifaAplicada: totalHoras === 1 ? 
+      parseFloat(tarifaData.primera_hora) : 
+      parseFloat(tarifaData.hora_adicional)
+  };
 }
 
 module.exports = { calcularTarifa };

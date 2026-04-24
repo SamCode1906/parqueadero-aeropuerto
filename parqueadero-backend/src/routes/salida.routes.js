@@ -1,8 +1,9 @@
 const express = require('express');
 const router = express.Router();
-const ctrl = require('../controllers/salida.controller');
+const { verificarToken, esOperarioOAdmin } = require('../middlewares/auth.middleware');
+const { registrarSalida, calcularValorPagar } = require('../controllers/salida.controller');
 
-// 🚪 registrar salida
-router.post('/', ctrl.registrarSalida);
+router.post('/', verificarToken, esOperarioOAdmin, registrarSalida);
+router.get('/calcular/:placa', verificarToken, esOperarioOAdmin, calcularValorPagar);
 
 module.exports = router;
