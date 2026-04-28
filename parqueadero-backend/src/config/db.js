@@ -162,13 +162,15 @@ async function seedData() {
     if (tarifas[0].count === 0) {
       await pool.execute(
         `INSERT INTO tarifas (tipo_vehiculo, primera_hora, hora_adicional, plan_mensual) VALUES 
-         ('Automovil', 4300, 3500, 120000),
-         ('Campero', 4300, 4000, 150000),
-         ('Camioneta', 4300, 4000, 150000),
-         ('Microbus', 5000, 4500, 180000),
-         ('Motocarro', 3000, 2500, 80000)`
+         ('Automovil', 4300, 2600, 178900),
+         ('Campero', 4300, 2600, 178900),
+         ('Camioneta', 4300, 2600, 178900),
+         ('Microbus', 4300, 2600, 178900),
+         ('Motocarro', 4300, 2600, 178900),
+         ('Motocicleta', 2700, 1500, 67200),
+         ('Bicicleta', 700, 400, 16800)`
       );
-      console.log('✅ Tarifas insertadas');
+      console.log('✅ Tarifas oficiales insertadas');
     }
     
     console.log('✅ Seed completado');
@@ -177,4 +179,5 @@ async function seedData() {
   }
 }
 
+// ESTAS LÍNEAS SON LAS IMPORTANTES
 module.exports = { pool, testConnection, initializeDatabase };

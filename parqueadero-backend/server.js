@@ -21,58 +21,23 @@ app.use('/api/salidas', salidaRoutes);
 app.use('/api/tarifas', tarifaRoutes);
 
 app.get('/api/health', (req, res) => {
-  res.json({
-    success: true,
-    message: 'API de Parqueadero funcionando correctamente',
-    timestamp: new Date()
-  });
+  res.json({ success: true, message: 'API funcionando', timestamp: new Date() });
 });
 
 app.use((err, req, res, next) => {
-  console.error('Error no manejado:', err);
-  res.status(500).json({
-    success: false,
-    message: 'Error interno del servidor'
-  });
+  console.error('Error:', err);
+  res.status(500).json({ success: false, message: 'Error interno del servidor' });
 });
 
-app.use((req, res) => {
-  res.status(404).json({
-    success: false,
-    message: 'Ruta no encontrada'
-  });
-});
-
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 4000;
 
 async function startServer() {
-  try {
-    await testConnection();
-    await initializeDatabase();
-    
-    app.listen(PORT, () => {
-      console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
-      console.log('📋 Endpoints disponibles:');
-      console.log('   POST /api/auth/register');
-      console.log('   POST /api/auth/login');
-      console.log('   GET  /api/auth/profile');
-      console.log('   POST /api/ingresos');
-      console.log('   GET  /api/ingresos/activos');
-      console.log('   GET  /api/ingresos/verificar/:placa');
-      console.log('   POST /api/salidas');
-      console.log('   GET  /api/salidas/calcular/:placa');
-      console.log('   GET  /api/tarifas');
-      console.log('   PUT  /api/tarifas/:id');
-      console.log('   GET  /api/tarifas/historial');
-      console.log('   POST /api/tarifas/planes');
-      console.log('   GET  /api/tarifas/planes/activos');
-      console.log('   GET  /api/tarifas/reportes');
-      console.log('   GET  /api/tarifas/cupos');
-    });
-  } catch (error) {
-    console.error('❌ Error al iniciar el servidor:', error.message);
-    process.exit(1);
-  }
+  await testConnection();
+  await initializeDatabase();
+  
+  app.listen(PORT, () => {
+    console.log(`Servidor corriendo en http://localhost:${PORT}`);
+  });
 }
 
 startServer();

@@ -21,7 +21,7 @@ async function registrarIngreso(req, res) {
       });
     }
 
-    const tiposValidos = ['Automovil', 'Campero', 'Camioneta', 'Microbus', 'Motocarro', 'Bicicleta'];
+    const tiposValidos = ['Automovil', 'Campero', 'Camioneta', 'Microbus', 'Motocarro', 'Motocicleta', 'Bicicleta'];
     if (!tiposValidos.includes(tipo_vehiculo)) {
       return res.status(400).json({
         success: false,

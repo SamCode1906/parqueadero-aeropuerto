@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { ingresoService, salidaService, tarifaService } from '../services/api';
 import toast from 'react-hot-toast';
-import { LogOut, Car, ArrowRight, ArrowLeft, ParkingCircle, Search, DollarSign, CheckCircle, CreditCard } from 'lucide-react';
+import CamaraPlaca from './CamaraPlaca';
 
 export default function OperarioDashboard() {
   const { usuario, logout } = useAuth();
@@ -10,24 +10,30 @@ export default function OperarioDashboard() {
   const [ingresos, setIngresos] = useState([]);
   const [cupos, setCupos] = useState(null);
   const [loading, setLoading] = useState(false);
-  
-  // Ingreso
+  const [horaActual, setHoraActual] = useState(new Date());
+  const [mostrarCamara, setMostrarCamara] = useState(false);
   const [placaIngreso, setPlacaIngreso] = useState('');
   const [tipoVehiculo, setTipoVehiculo] = useState('Automovil');
   const [tipoRegistro, setTipoRegistro] = useState('manual');
   
-  // Salida
   const [placaSalida, setPlacaSalida] = useState('');
   const [calculoSalida, setCalculoSalida] = useState(null);
   const [metodoPago, setMetodoPago] = useState('efectivo');
   const [calculando, setCalculando] = useState(false);
 
   useEffect(() => {
-    cargarIngresos();
-    cargarCupos();
-    const interval = setInterval(cargarCupos, 10000);
+    cargarDatos();
+    const interval = setInterval(() => {
+      cargarCupos();
+      setHoraActual(new Date());
+    }, 10000);
     return () => clearInterval(interval);
   }, []);
+
+  const cargarDatos = () => {
+    cargarIngresos();
+    cargarCupos();
+  };
 
   const cargarIngresos = async () => {
     try {
@@ -49,41 +55,28 @@ export default function OperarioDashboard() {
 
   const registrarIngreso = async (e) => {
     e.preventDefault();
-    if (!placaIngreso.trim()) {
-      toast.error('Ingrese la placa del vehículo');
-      return;
-    }
-
+    if (!placaIngreso.trim()) return toast.error('Ingrese la placa');
     setLoading(true);
     try {
-      await ingresoService.crear({
-        placa: placaIngreso.toUpperCase(),
-        tipo_vehiculo: tipoVehiculo,
-        tipo_registro: tipoRegistro,
-      });
-      toast.success('Ingreso registrado exitosamente');
+      await ingresoService.crear({ placa: placaIngreso.toUpperCase(), tipo_vehiculo: tipoVehiculo, tipo_registro: tipoRegistro });
+      toast.success('Vehículo registrado');
       setPlacaIngreso('');
-      cargarIngresos();
-      cargarCupos();
+      cargarDatos();
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Error al registrar ingreso');
+      toast.error(error.response?.data?.message || 'Error');
     } finally {
       setLoading(false);
     }
   };
 
   const calcularSalida = async () => {
-    if (!placaSalida.trim()) {
-      toast.error('Ingrese la placa del vehículo');
-      return;
-    }
-
+    if (!placaSalida.trim()) return toast.error('Ingrese la placa');
     setCalculando(true);
     try {
       const { data } = await salidaService.calcular(placaSalida.toUpperCase());
       setCalculoSalida(data.data);
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Error al calcular');
+      toast.error(error.response?.data?.message || 'Error');
       setCalculoSalida(null);
     } finally {
       setCalculando(false);
@@ -93,568 +86,409 @@ export default function OperarioDashboard() {
   const registrarSalida = async () => {
     setLoading(true);
     try {
-      const { data } = await salidaService.registrar({
-        placa: placaSalida.toUpperCase(),
-        metodo_pago: metodoPago,
-      });
-      toast.success(data.message || 'Salida registrada exitosamente');
+      const { data } = await salidaService.registrar({ placa: placaSalida.toUpperCase(), metodo_pago: metodoPago });
+      toast.success(data.message || 'Salida registrada');
       setPlacaSalida('');
       setCalculoSalida(null);
-      cargarIngresos();
-      cargarCupos();
+      cargarDatos();
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Error al registrar salida');
+      toast.error(error.response?.data?.message || 'Error');
     } finally {
       setLoading(false);
     }
   };
 
+  const tipoVehiculos = ['Automovil', 'Campero', 'Camioneta', 'Microbus', 'Motocarro', 'Motocicleta', 'Bicicleta'];
   const metodosPago = [
-    { value: 'efectivo', label: 'Efectivo', icon: DollarSign },
-    { value: 'transferencia', label: 'Transferencia', icon: CreditCard },
-    { value: 'qr', label: 'QR', icon: CheckCircle },
+    { value: 'efectivo', label: 'Efectivo', icon: '💵' },
+    { value: 'transferencia', label: 'Transferencia', icon: '🏦' },
+    { value: 'qr', label: 'Código QR', icon: '📱' },
   ];
 
   return (
-    <div style={styles.layout}>
+    <div className="dashboard-layout">
       {/* Sidebar */}
-      <aside style={styles.sidebar}>
-        <div style={styles.sidebarHeader}>
-          <ParkingCircle size={32} color="var(--primary)" />
-          <span style={styles.brand}>Operario</span>
+      <aside className="sidebar">
+        <div className="sidebar-brand">
+          <div className="brand-icon">
+            <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+              <rect x="2" y="6" width="28" height="20" rx="3" stroke="var(--primary)" strokeWidth="1.5"/>
+              <rect x="8" y="13" width="16" height="13" rx="2" fill="rgba(0,229,255,0.08)" stroke="var(--primary)" strokeWidth="1.5"/>
+              <circle cx="12" cy="22" r="2" fill="var(--primary)"/>
+              <circle cx="20" cy="22" r="2" fill="var(--primary)"/>
+            </svg>
+          </div>
+          <div>
+            <h2 style={{ fontSize: '12px', fontWeight: 700, letterSpacing: '0.5px', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>SGI Parqueadero</h2>
+<span style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 500 }}>Aeropuerto Alfonso Bonilla Aragón</span>
+          </div>
         </div>
-        
-        <nav style={styles.nav}>
-          <button 
-            onClick={() => { setActiveTab('ingreso'); setCalculoSalida(null); }} 
-            style={{...styles.navBtn, ...(activeTab === 'ingreso' ? styles.navBtnActive : {})}}
-          >
-            <ArrowRight size={18} /> Registrar Ingreso
+
+        <nav className="sidebar-nav">
+          <button onClick={() => { setActiveTab('ingreso'); setCalculoSalida(null); }} className={`nav-item ${activeTab === 'ingreso' ? 'active' : ''}`}>
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 2v6l5-3-5-3zM2 8h16v10H2V8z" stroke="currentColor" strokeWidth="1.5"/></svg>
+            Registrar Ingreso
           </button>
-          <button 
-            onClick={() => setActiveTab('salida')} 
-            style={{...styles.navBtn, ...(activeTab === 'salida' ? styles.navBtnActive : {})}}
-          >
-            <ArrowLeft size={18} /> Registrar Salida
+          <button onClick={() => setActiveTab('salida')} className={`nav-item ${activeTab === 'salida' ? 'active' : ''}`}>
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M2 8h16v10H2V8zM14 2l-4 4 4 4" stroke="currentColor" strokeWidth="1.5"/></svg>
+            Registrar Salida
           </button>
-          <button 
-            onClick={() => { setActiveTab('activos'); cargarIngresos(); }} 
-            style={{...styles.navBtn, ...(activeTab === 'activos' ? styles.navBtnActive : {})}}
-          >
-            <Car size={18} /> Vehículos Activos
+          <button onClick={() => { setActiveTab('activos'); cargarIngresos(); }} className={`nav-item ${activeTab === 'activos' ? 'active' : ''}`}>
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="7" cy="7" r="3" stroke="currentColor" strokeWidth="1.5"/><circle cx="13" cy="7" r="3" stroke="currentColor" strokeWidth="1.5"/><rect x="2" y="12" width="16" height="6" rx="2" stroke="currentColor" strokeWidth="1.5"/></svg>
+            Vehículos Activos
+            {ingresos.length > 0 && <span className="nav-badge">{ingresos.length}</span>}
           </button>
         </nav>
 
-        {/* Cupos en sidebar */}
         {cupos && (
-          <div style={styles.cuposWidget}>
-            <h4 style={{color: 'var(--text-muted)', fontSize: '12px', marginBottom: '8px'}}>CUPOS</h4>
-            <div style={styles.cupoBar}>
-              <div style={{...styles.cupoFill, width: `${cupos.porcentaje_ocupacion}%`, background: cupos.disponibles > 5 ? 'var(--success)' : 'var(--danger)'}} />
+          <div className="cupos-widget">
+            <div className="cupos-header">
+              <span>OCUPACIÓN</span>
+              <span className="mono">{cupos.ocupados}/{cupos.total_cupos}</span>
             </div>
-            <div style={styles.cupoInfo}>
-              <span style={{color: 'var(--success)'}}>{cupos.disponibles} libres</span>
-              <span style={{color: 'var(--text-muted)'}}>/ {cupos.total_cupos}</span>
+            <div className="cupos-bar">
+              <div className={`cupos-fill ${cupos.disponibles <= 3 ? 'danger' : cupos.disponibles <= 10 ? 'warning' : ''}`} style={{ width: `${cupos.porcentaje_ocupacion}%` }} />
+            </div>
+            <div className="cupos-footer">
+              <span className={cupos.disponibles <= 3 ? 'text-danger' : 'text-success'}>{cupos.disponibles} disponibles</span>
+              <span className="text-muted">{cupos.porcentaje_ocupacion}%</span>
             </div>
           </div>
         )}
 
-        <div style={styles.sidebarFooter}>
-          <span style={{fontSize: '13px'}}>{usuario?.nombre}</span>
-          <button onClick={logout} style={styles.logoutBtn}>
-            <LogOut size={18} />
+        <div className="sidebar-footer">
+          <div className="user-info">
+            <div className="user-avatar">{usuario?.nombre?.charAt(0)}</div>
+            <div>
+              <p className="user-name">{usuario?.nombre}</p>
+              <p className="user-role">Operario</p>
+            </div>
+          </div>
+          <button onClick={logout} className="btn-logout" title="Cerrar sesión">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M6 3H3v12h3M12 13l4-4-4-4M16 9H7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
           </button>
         </div>
       </aside>
 
-      {/* Contenido Principal */}
-      <main style={styles.main}>
-        {/* Header con cupos */}
-        <div style={styles.topBar}>
-          <h2 style={styles.pageTitle}>
-            {activeTab === 'ingreso' && 'Registrar Ingreso'}
-            {activeTab === 'salida' && 'Registrar Salida'}
+      {/* Main */}
+      <main className="main-content">
+        <header className="top-bar">
+          <h1 className="page-title">
+            {activeTab === 'ingreso' && 'Registro de Ingreso'}
+            {activeTab === 'salida' && 'Registro de Salida'}
             {activeTab === 'activos' && 'Vehículos en Parqueadero'}
-          </h2>
-          {cupos && (
-            <div style={styles.cuposBadge}>
-              <Car size={16} />
-              <span>{cupos.ocupados}/{cupos.total_cupos} ocupados</span>
-            </div>
-          )}
-        </div>
+          </h1>
+          <div className="header-info">
+            <span className="clock mono">{horaActual.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
+            <span className="date">{horaActual.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long' })}</span>
+          </div>
+        </header>
 
-        {/* FORMULARIO DE INGRESO */}
         {activeTab === 'ingreso' && (
-          <div style={styles.formCard}>
-            <form onSubmit={registrarIngreso} style={styles.form}>
-              <div style={styles.formRow}>
-                <div style={styles.inputGroup}>
-                  <label style={styles.label}>Placa del Vehículo *</label>
-                  <input
-                    value={placaIngreso}
-                    onChange={(e) => setPlacaIngreso(e.target.value.toUpperCase())}
-                    style={styles.input}
-                    placeholder="ABC123"
-                    maxLength={10}
-                    autoFocus
-                  />
-                </div>
-                <div style={styles.inputGroup}>
-                  <label style={styles.label}>Tipo de Vehículo</label>
-                  <select value={tipoVehiculo} onChange={(e) => setTipoVehiculo(e.target.value)} style={styles.input}>
-                    <option>Automovil</option>
-                    <option>Campero</option>
-                    <option>Camioneta</option>
-                    <option>Microbus</option>
-                    <option>Motocarro</option>
-                    <option>Bicicleta</option>
-                  </select>
-                </div>
-                <div style={styles.inputGroup}>
-                  <label style={styles.label}>Tipo de Registro</label>
-                  <select value={tipoRegistro} onChange={(e) => setTipoRegistro(e.target.value)} style={styles.input}>
-                    <option value="manual">Manual</option>
-                    <option value="automatico">Automático</option>
-                  </select>
-                </div>
+          <div className="card animate-fade-in">
+            <div className="card-header">
+              <h3>Nuevo Ingreso</h3>
+              <span className={`badge ${tipoRegistro === 'automatico' ? 'badge-info' : 'badge-warning'}`}>{tipoRegistro === 'automatico' ? 'Automático' : 'Manual'}</span>
+            </div>
+            <form onSubmit={registrarIngreso} className="form-grid">
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end' }}>
+  <div className="input-group" style={{ flex: 1 }}>
+    <label>Placa *</label>
+    <input value={placaIngreso} onChange={(e) => setPlacaIngreso(e.target.value.toUpperCase())} placeholder="ABC123" maxLength={10} />
+  </div>
+  <button
+    type="button"
+    onClick={() => setMostrarCamara(true)}
+    style={{
+      padding: '12px 16px', background: 'var(--bg-input)', color: 'var(--primary)',
+      border: '1px solid var(--primary)', borderRadius: 'var(--radius-md)',
+      fontWeight: 700, cursor: 'pointer', fontSize: '14px', whiteSpace: 'nowrap',
+    }}
+    title="Leer placa con cámara"
+  >
+    📷 Leer
+  </button>
+</div>
+              <div className="input-group">
+                <label>Tipo Vehículo</label>
+                <select value={tipoVehiculo} onChange={(e) => setTipoVehiculo(e.target.value)}>
+                  {tipoVehiculos.map(t => <option key={t}>{t}</option>)}
+                </select>
               </div>
-              <button type="submit" style={styles.btnPrimary} disabled={loading}>
-                <ArrowRight size={20} />
+              <div className="input-group">
+                <label>Registro</label>
+                <select value={tipoRegistro} onChange={(e) => setTipoRegistro(e.target.value)}>
+                  <option value="manual">Manual</option>
+                  <option value="automatico">Automático</option>
+                </select>
+              </div>
+              <button type="submit" className="btn-primary" disabled={loading} style={{alignSelf: 'flex-end'}}>
                 {loading ? 'Registrando...' : 'Registrar Ingreso'}
               </button>
             </form>
           </div>
         )}
 
-        {/* FORMULARIO DE SALIDA */}
         {activeTab === 'salida' && (
-          <div style={styles.formCard}>
-            <div style={styles.formRow}>
-              <div style={{...styles.inputGroup, flex: 1}}>
-                <label style={styles.label}>Placa del Vehículo *</label>
-                <div style={{display: 'flex', gap: '8px'}}>
-                  <input
-                    value={placaSalida}
-                    onChange={(e) => { setPlacaSalida(e.target.value.toUpperCase()); setCalculoSalida(null); }}
-                    style={{...styles.input, flex: 1}}
-                    placeholder="ABC123"
-                    maxLength={10}
-                  />
-                  <button onClick={calcularSalida} style={styles.btnSearch} disabled={calculando}>
-                    <Search size={18} />
-                    {calculando ? '...' : 'Calcular'}
-                  </button>
-                </div>
-              </div>
+          <div className="card animate-fade-in">
+            <div className="card-header"><h3>Procesar Salida</h3></div>
+            <div className="salida-search">
+              <input value={placaSalida} onChange={(e) => { setPlacaSalida(e.target.value.toUpperCase()); setCalculoSalida(null); }} placeholder="Buscar placa..." />
+              <button onClick={calcularSalida} disabled={calculando} className="btn-search">
+                {calculando ? 'Buscando...' : 'Calcular'}
+              </button>
             </div>
 
-            {/* Resultado del cálculo */}
             {calculoSalida && (
-              <div style={styles.calculoCard}>
-                <div style={styles.calculoHeader}>
-                  <Car size={28} color="var(--primary)" />
-                  <div>
-                    <h3 style={{fontSize: '20px', color: 'var(--text)'}}>{calculoSalida.placa}</h3>
-                    <p style={{color: 'var(--text-muted)', fontSize: '14px'}}>{calculoSalida.tipo_vehiculo}</p>
-                  </div>
-                </div>
-
+              <div className="calculo-result animate-slide-in">
                 {calculoSalida.tiene_plan_mensual ? (
-                  <div style={styles.planMensualBadge}>
-                    <CheckCircle size={20} color="var(--success)" />
-                    <span>Plan Mensual Activo - Sin cobro</span>
+                  <div className="plan-badge">
+                    <span>✅ Plan Mensual Activo</span>
+                    <strong>Sin cobro</strong>
                   </div>
                 ) : (
                   <>
-                    <div style={styles.calculoDetalle}>
-                      <div style={styles.detalleRow}>
-                        <span>Total Horas:</span>
-                        <strong>{calculoSalida.total_horas} hrs</strong>
+                    <div className="calculo-grid">
+                      <div className="calculo-stat">
+                        <span>Horas</span>
+                        <strong>{calculoSalida.total_horas}</strong>
                       </div>
-                      <div style={styles.detalleRow}>
-                        <span>Tarifa 1ra Hora:</span>
+                      <div className="calculo-stat">
+                        <span>Tarifa base</span>
                         <strong>${Number(calculoSalida.tarifa_primera_hora).toLocaleString()}</strong>
                       </div>
-                      <div style={styles.detalleRow}>
-                        <span>Tarifa Hora Adicional:</span>
+                      <div className="calculo-stat">
+                        <span>Adicional</span>
                         <strong>${Number(calculoSalida.tarifa_hora_adicional).toLocaleString()}</strong>
                       </div>
+                      <div className="calculo-stat highlight">
+                        <span>TOTAL</span>
+                        <strong>${Number(calculoSalida.total_pagar).toLocaleString()}</strong>
+                      </div>
                     </div>
-
-                    <div style={styles.totalRow}>
-                      <span>TOTAL A PAGAR</span>
-                      <span style={{fontSize: '32px', color: 'var(--warning)', fontWeight: '700'}}>
-                        ${Number(calculoSalida.total_pagar).toLocaleString()}
-                      </span>
-                    </div>
-
-                    {/* Método de pago */}
-                    <div style={{marginTop: '20px'}}>
-                      <label style={styles.label}>Método de Pago</label>
-                      <div style={styles.metodosGrid}>
-                        {metodosPago.map((metodo) => (
-                          <button
-                            key={metodo.value}
-                            onClick={() => setMetodoPago(metodo.value)}
-                            style={{
-                              ...styles.metodoBtn,
-                              ...(metodoPago === metodo.value ? styles.metodoBtnActive : {}),
-                            }}
-                          >
-                            <metodo.icon size={20} />
-                            {metodo.label}
+                    <div className="metodo-pago">
+                      <label>Método de Pago</label>
+                      <div className="metodo-grid">
+                        {metodosPago.map(m => (
+                          <button key={m.value} onClick={() => setMetodoPago(m.value)} className={`metodo-btn ${metodoPago === m.value ? 'active' : ''}`}>
+                            <span>{m.icon}</span> {m.label}
                           </button>
                         ))}
                       </div>
                     </div>
-
-                    <button onClick={registrarSalida} style={{...styles.btnPrimary, marginTop: '16px', width: '100%'}} disabled={loading}>
-                      <CheckCircle size={20} />
-                      {loading ? 'Registrando...' : 'Confirmar Pago y Registrar Salida'}
-                    </button>
                   </>
                 )}
-
-                {calculoSalida.tiene_plan_mensual && (
-                  <button onClick={registrarSalida} style={{...styles.btnPrimary, marginTop: '16px', width: '100%'}} disabled={loading}>
-                    <CheckCircle size={20} />
-                    {loading ? 'Registrando...' : 'Registrar Salida (Sin Cobro)'}
-                  </button>
-                )}
+                <button onClick={registrarSalida} className="btn-success-full" disabled={loading}>
+                  {loading ? 'Procesando...' : 'Confirmar y Registrar Salida'}
+                </button>
               </div>
             )}
           </div>
         )}
 
-        {/* LISTA DE VEHÍCULOS ACTIVOS */}
         {activeTab === 'activos' && (
-          <div style={styles.tableContainer}>
+          <div className="card animate-fade-in">
+            <div className="card-header">
+              <h3>Vehículos en Parqueadero</h3>
+              <span className="badge badge-primary">{ingresos.length} activos</span>
+            </div>
             {ingresos.length === 0 ? (
-              <div style={{textAlign: 'center', padding: '40px', color: 'var(--text-muted)'}}>
-                <ParkingCircle size={48} />
-                <p style={{marginTop: '16px'}}>No hay vehículos en el parqueadero</p>
+              <div className="empty-state">
+                <svg width="64" height="64" viewBox="0 0 64 64" fill="none"><rect x="8" y="16" width="48" height="32" rx="4" stroke="var(--text-muted)" strokeWidth="1.5"/><path d="M22 36h20M22 42h14" stroke="var(--text-muted)" strokeWidth="1.5" strokeLinecap="round"/></svg>
+                <p>No hay vehículos en este momento</p>
               </div>
             ) : (
-              <table style={styles.table}>
-                <thead>
-                  <tr>
-                    <th>Placa</th>
-                    <th>Tipo</th>
-                    <th>Registro</th>
-                    <th>Plan</th>
-                    <th>Fecha Ingreso</th>
-                    <th>Cliente</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {ingresos.map((ingreso) => (
-                    <tr key={ingreso.id}>
-                      <td style={{fontWeight: '600', color: 'var(--primary)'}}>{ingreso.placa}</td>
-                      <td>{ingreso.tipo_vehiculo}</td>
-                      <td>
-                        <span style={{
-                          padding: '2px 8px',
-                          borderRadius: '4px',
-                          fontSize: '12px',
-                          background: ingreso.tipo_registro === 'automatico' ? 'rgba(0,212,255,0.2)' : 'rgba(255,184,0,0.2)',
-                          color: ingreso.tipo_registro === 'automatico' ? 'var(--primary)' : 'var(--warning)',
-                        }}>
-                          {ingreso.tipo_registro}
-                        </span>
-                      </td>
-                      <td>
-                        {ingreso.es_plan_mensual ? (
-                          <span style={{color: 'var(--success)', fontSize: '12px'}}>Mensual</span>
-                        ) : (
-                          <span style={{color: 'var(--text-muted)', fontSize: '12px'}}>Diario</span>
-                        )}
-                      </td>
-                      <td>{new Date(ingreso.fecha_ingreso).toLocaleString()}</td>
-                      <td>{ingreso.nombre_cliente || '-'}</td>
+              <div className="table-wrapper">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Placa</th>
+                      <th>Tipo</th>
+                      <th>Registro</th>
+                      <th>Plan</th>
+                      <th>Ingreso</th>
+                      <th>Permanencia</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {ingresos.map(ingreso => {
+                      const horas = Math.ceil((new Date() - new Date(ingreso.fecha_ingreso)) / 3600000);
+                      return (
+                        <tr key={ingreso.id}>
+                          <td className="mono font-bold" style={{color: 'var(--primary)'}}>{ingreso.placa}</td>
+                          <td>{ingreso.tipo_vehiculo}</td>
+                          <td><span className={`badge ${ingreso.tipo_registro === 'automatico' ? 'badge-info' : 'badge-warning'}`}>{ingreso.tipo_registro}</span></td>
+                          <td><span className={`badge ${ingreso.es_plan_mensual ? 'badge-success' : 'badge-default'}`}>{ingreso.es_plan_mensual ? 'Mensual' : 'Diario'}</span></td>
+                          <td className="text-muted">{new Date(ingreso.fecha_ingreso).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}</td>
+                          <td><span className={horas > 6 ? 'text-warning' : 'text-muted'}>{horas}h</span></td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
         )}
+              {mostrarCamara && (
+        <CamaraPlaca
+          onPlacaDetectada={(placa) => {
+            setPlacaIngreso(placa);
+            setMostrarCamara(false);
+            toast.success(`Placa detectada: ${placa}`);
+          }}
+          onClose={() => setMostrarCamara(false)}
+        />
+      )}
       </main>
+
+      <style>{`
+        .dashboard-layout { display: flex; min-height: 100vh; }
+        
+        .sidebar {
+          width: 280px; background: var(--bg-elevated); border-right: 1px solid var(--border-subtle);
+          display: flex; flex-direction: column; padding: 20px; position: sticky; top: 0; height: 100vh;
+        }
+        .sidebar-brand { display: flex; align-items: center; gap: 12px; padding-bottom: 24px; border-bottom: 1px solid var(--border-subtle); margin-bottom: 20px; }
+        .brand-icon { animation: glow 3s ease-in-out infinite; }
+        .brand-name { font-size: 20px; font-weight: 900; letter-spacing: 3px; color: var(--primary); }
+        .brand-role { font-size: 11px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
+        
+        .sidebar-nav { display: flex; flex-direction: column; gap: 4px; flex: 1; }
+        .nav-item {
+          display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: var(--radius-md);
+          border: none; background: transparent; color: var(--text-muted); font-size: 14px; font-weight: 500;
+          cursor: pointer; transition: all var(--transition-fast); font-family: var(--font-family); position: relative;
+        }
+        .nav-item:hover { background: var(--bg-hover); color: var(--text-secondary); }
+        .nav-item.active { background: rgba(0,229,255,0.08); color: var(--primary); font-weight: 600; }
+        .nav-badge {
+          position: absolute; right: 12px; background: var(--primary); color: #000; font-size: 11px;
+          font-weight: 700; padding: 2px 8px; border-radius: var(--radius-full); min-width: 22px; text-align: center;
+        }
+        
+        .cupos-widget {
+          margin-top: auto; margin-bottom: 16px; padding: 16px; background: var(--bg-surface);
+          border-radius: var(--radius-lg); border: 1px solid var(--border-subtle);
+        }
+        .cupos-header { display: flex; justify-content: space-between; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 10px; }
+        .cupos-bar { height: 4px; background: var(--border-default); border-radius: 2px; overflow: hidden; margin-bottom: 8px; }
+        .cupos-fill { height: 100%; border-radius: 2px; background: var(--success); transition: width 0.5s; }
+        .cupos-fill.warning { background: var(--warning); }
+        .cupos-fill.danger { background: var(--danger); animation: pulse 1.5s ease-in-out infinite; }
+        .cupos-footer { display: flex; justify-content: space-between; font-size: 12px; font-weight: 600; }
+        
+        .sidebar-footer { display: flex; justify-content: space-between; align-items: center; padding-top: 16px; border-top: 1px solid var(--border-subtle); }
+        .user-info { display: flex; align-items: center; gap: 10px; }
+        .user-avatar { width: 36px; height: 36px; border-radius: var(--radius-full); background: var(--primary); color: #000; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 16px; }
+        .user-name { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+        .user-role { font-size: 11px; color: var(--text-muted); }
+        .btn-logout { background: transparent; border: none; color: var(--text-muted); cursor: pointer; padding: 8px; border-radius: var(--radius-md); transition: all var(--transition-fast); }
+        .btn-logout:hover { background: var(--danger-bg); color: var(--danger); }
+        
+        .main-content { flex: 1; padding: 32px; overflow: auto; }
+        .top-bar { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 32px; flex-wrap: wrap; gap: 16px; }
+        .page-title { font-size: 24px; font-weight: 800; color: var(--text-primary); letter-spacing: -0.3px; }
+        .header-info { text-align: right; }
+        .clock { display: block; font-size: 28px; font-weight: 700; color: var(--primary); }
+        .date { font-size: 13px; color: var(--text-muted); text-transform: capitalize; }
+        
+        .card {
+          background: var(--bg-elevated); border: 1px solid var(--border-subtle);
+          border-radius: var(--radius-xl); padding: 28px; margin-bottom: 24px;
+          box-shadow: var(--shadow-md);
+        }
+        .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+        .card-header h3 { font-size: 18px; font-weight: 700; }
+        
+        .badge {
+          padding: 4px 12px; border-radius: var(--radius-full); font-size: 11px; font-weight: 600;
+          text-transform: uppercase; letter-spacing: 0.5px;
+        }
+        .badge-info { background: var(--info-bg); color: var(--info); }
+        .badge-warning { background: var(--warning-bg); color: var(--warning); }
+        .badge-success { background: var(--success-bg); color: var(--success); }
+        .badge-primary { background: rgba(0,229,255,0.1); color: var(--primary); }
+        .badge-default { background: var(--bg-surface); color: var(--text-muted); }
+        
+        .form-grid {
+          display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 16px; align-items: end;
+        }
+        @media (max-width: 900px) { .form-grid { grid-template-columns: 1fr 1fr; } }
+        @media (max-width: 600px) { .form-grid { grid-template-columns: 1fr; } }
+        
+        .input-group { display: flex; flex-direction: column; gap: 6px; }
+        .input-group label { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; }
+        .input-group input, .input-group select {
+          padding: 12px 16px; background: var(--bg-input); border: 1px solid var(--border-default);
+          border-radius: var(--radius-md); color: var(--text-primary); font-size: 15px;
+          font-family: var(--font-family); outline: none; transition: all var(--transition-fast);
+        }
+        .input-group input:focus, .input-group select:focus {
+          border-color: var(--border-primary); box-shadow: 0 0 0 3px rgba(0,229,255,0.06);
+        }
+        
+        .btn-primary {
+          padding: 12px 28px; background: var(--primary); color: #000; border: none;
+          border-radius: var(--radius-md); font-size: 14px; font-weight: 700; cursor: pointer;
+          font-family: var(--font-family); transition: all var(--transition-fast); white-space: nowrap;
+        }
+        .btn-primary:hover { background: var(--primary-dark); box-shadow: 0 0 16px rgba(0,229,255,0.2); }
+        .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+        
+        .salida-search { display: flex; gap: 12px; margin-bottom: 24px; }
+        .salida-search input { flex: 1; padding: 14px 18px; background: var(--bg-input); border: 1px solid var(--border-default); border-radius: var(--radius-md); color: var(--text-primary); font-size: 16px; font-family: var(--font-family); outline: none; }
+        .salida-search input:focus { border-color: var(--border-primary); }
+        .btn-search { padding: 14px 24px; background: var(--primary); color: #000; border: none; border-radius: var(--radius-md); font-weight: 700; cursor: pointer; font-family: var(--font-family); }
+        
+        .calculo-result { margin-top: 24px; padding: 24px; background: var(--bg-surface); border-radius: var(--radius-lg); border: 1px solid var(--border-default); }
+        .plan-badge { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; background: var(--success-bg); border-radius: var(--radius-md); color: var(--success); font-weight: 600; margin-bottom: 16px; }
+        .calculo-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+        @media (max-width: 600px) { .calculo-grid { grid-template-columns: 1fr 1fr; } }
+        .calculo-stat { padding: 14px; background: var(--bg-card); border-radius: var(--radius-md); text-align: center; }
+        .calculo-stat span { display: block; font-size: 11px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 4px; }
+        .calculo-stat strong { font-size: 20px; color: var(--text-primary); font-family: var(--font-mono); }
+        .calculo-stat.highlight { background: rgba(255,215,64,0.08); border: 1px solid rgba(255,215,64,0.2); }
+        .calculo-stat.highlight strong { color: var(--warning); font-size: 24px; }
+        
+        .metodo-pago { margin-bottom: 20px; }
+        .metodo-pago label { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 8px; }
+        .metodo-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+        .metodo-btn {
+          padding: 12px; background: var(--bg-card); border: 2px solid var(--border-default);
+          border-radius: var(--radius-md); color: var(--text-secondary); cursor: pointer;
+          font-size: 13px; font-weight: 600; font-family: var(--font-family); transition: all var(--transition-fast);
+        }
+        .metodo-btn:hover { background: var(--bg-hover); }
+        .metodo-btn.active { border-color: var(--primary); background: rgba(0,229,255,0.06); color: var(--primary); }
+        
+        .btn-success-full {
+          width: 100%; padding: 16px; background: var(--success); color: #000; border: none;
+          border-radius: var(--radius-md); font-size: 15px; font-weight: 700; cursor: pointer;
+          font-family: var(--font-family); transition: all var(--transition-fast);
+        }
+        .btn-success-full:hover { box-shadow: 0 0 20px rgba(0,230,118,0.3); }
+        .btn-success-full:disabled { opacity: 0.5; cursor: not-allowed; }
+        
+        .empty-state { text-align: center; padding: 60px 20px; color: var(--text-muted); }
+        .empty-state svg { margin-bottom: 16px; opacity: 0.5; }
+        
+        .table-wrapper { overflow-x: auto; }
+        .data-table { width: 100%; border-collapse: collapse; }
+        .data-table th {
+          padding: 12px 16px; text-align: left; font-size: 10px; font-weight: 700;
+          color: var(--text-muted); text-transform: uppercase; letter-spacing: 1.5px;
+          border-bottom: 1px solid var(--border-default); background: var(--bg-surface);
+        }
+        .data-table td { padding: 14px 16px; border-bottom: 1px solid var(--border-subtle); font-size: 14px; }
+        .data-table tr:hover td { background: var(--bg-hover); }
+        
+        .font-bold { font-weight: 700; }
+        .text-muted { color: var(--text-muted); }
+        .text-success { color: var(--success); }
+        .text-warning { color: var(--warning); }
+        .text-danger { color: var(--danger); }
+      `}</style>
     </div>
   );
 }
-
-// ESTILOS
-const styles = {
-  layout: { display: 'flex', minHeight: '100vh' },
-  
-  sidebar: { 
-    width: '280px', 
-    background: 'var(--bg-card)', 
-    borderRight: '1px solid var(--border)', 
-    display: 'flex', 
-    flexDirection: 'column', 
-    padding: '24px',
-    position: 'sticky',
-    top: 0,
-    height: '100vh',
-  },
-  sidebarHeader: { 
-    display: 'flex', 
-    alignItems: 'center', 
-    gap: '12px', 
-    marginBottom: '32px',
-    paddingBottom: '20px',
-    borderBottom: '1px solid var(--border)',
-  },
-  brand: { fontSize: '20px', fontWeight: '700', color: 'var(--primary)' },
-  
-  nav: { display: 'flex', flexDirection: 'column', gap: '4px', flex: 1 },
-  navBtn: { 
-    display: 'flex', 
-    alignItems: 'center', 
-    gap: '12px', 
-    padding: '12px 16px', 
-    borderRadius: '8px', 
-    border: 'none', 
-    background: 'transparent', 
-    color: 'var(--text-muted)', 
-    fontSize: '15px', 
-    cursor: 'pointer', 
-    transition: 'all 0.2s',
-    textAlign: 'left',
-  },
-  navBtnActive: { 
-    background: 'rgba(0, 212, 255, 0.1)', 
-    color: 'var(--primary)',
-    fontWeight: '600',
-  },
-  
-  cuposWidget: {
-    padding: '16px',
-    background: 'var(--bg-input)',
-    borderRadius: '8px',
-    marginTop: 'auto',
-    marginBottom: '16px',
-  },
-  cupoBar: {
-    height: '6px',
-    background: 'var(--border)',
-    borderRadius: '3px',
-    overflow: 'hidden',
-    marginBottom: '8px',
-  },
-  cupoFill: {
-    height: '100%',
-    borderRadius: '3px',
-    transition: 'width 0.5s',
-  },
-  cupoInfo: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    fontSize: '13px',
-    fontWeight: '600',
-  },
-  
-  sidebarFooter: { 
-    display: 'flex', 
-    justifyContent: 'space-between', 
-    alignItems: 'center', 
-    paddingTop: '16px', 
-    borderTop: '1px solid var(--border)',
-    color: 'var(--text-muted)',
-  },
-  logoutBtn: { 
-    background: 'transparent', 
-    border: 'none', 
-    color: 'var(--danger)', 
-    cursor: 'pointer',
-    padding: '4px',
-    borderRadius: '6px',
-    transition: 'background 0.2s',
-  },
-  
-  main: { flex: 1, padding: '32px', overflow: 'auto' },
-  
-  topBar: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '28px',
-    flexWrap: 'wrap',
-    gap: '16px',
-  },
-  pageTitle: { fontSize: '26px', fontWeight: '700', color: 'var(--primary)' },
-  
-  cuposBadge: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    padding: '10px 20px',
-    background: 'var(--bg-card)',
-    borderRadius: '12px',
-    border: '1px solid var(--border)',
-    color: 'var(--text)',
-    fontWeight: '600',
-    fontSize: '15px',
-  },
-  
-  formCard: {
-    background: 'var(--bg-card)',
-    borderRadius: '16px',
-    padding: '32px',
-    border: '1px solid var(--border)',
-    marginBottom: '24px',
-  },
-  form: { display: 'flex', flexDirection: 'column', gap: '20px' },
-  formRow: { display: 'flex', gap: '20px', flexWrap: 'wrap' },
-  inputGroup: { display: 'flex', flexDirection: 'column', gap: '8px', minWidth: '200px' },
-  label: { fontSize: '13px', fontWeight: '600', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' },
-  input: {
-    padding: '12px 16px',
-    borderRadius: '8px',
-    border: '1px solid var(--border)',
-    background: 'var(--bg-input)',
-    color: 'var(--text)',
-    fontSize: '16px',
-    outline: 'none',
-    transition: 'border-color 0.2s',
-    width: '100%',
-  },
-  
-  btnPrimary: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '10px',
-    padding: '14px 28px',
-    background: 'var(--primary)',
-    color: '#0f1923',
-    border: 'none',
-    borderRadius: '10px',
-    fontSize: '16px',
-    fontWeight: '700',
-    cursor: 'pointer',
-    transition: 'opacity 0.2s',
-  },
-  btnSearch: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '6px',
-    padding: '12px 20px',
-    background: 'var(--primary)',
-    color: '#0f1923',
-    border: 'none',
-    borderRadius: '8px',
-    fontWeight: '600',
-    cursor: 'pointer',
-    whiteSpace: 'nowrap',
-  },
-  
-  calculoCard: {
-    marginTop: '24px',
-    padding: '24px',
-    background: 'var(--bg-input)',
-    borderRadius: '12px',
-    border: '1px solid var(--border)',
-  },
-  calculoHeader: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '16px',
-    marginBottom: '20px',
-    paddingBottom: '16px',
-    borderBottom: '1px solid var(--border)',
-  },
-  planMensualBadge: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '10px',
-    padding: '16px',
-    background: 'rgba(0, 255, 136, 0.1)',
-    borderRadius: '8px',
-    color: 'var(--success)',
-    fontWeight: '600',
-  },
-  calculoDetalle: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '12px',
-    marginBottom: '20px',
-  },
-  detalleRow: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    color: 'var(--text-muted)',
-    fontSize: '15px',
-  },
-  totalRow: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: '20px',
-    background: 'rgba(255, 184, 0, 0.1)',
-    borderRadius: '10px',
-    border: '1px solid rgba(255, 184, 0, 0.3)',
-    fontWeight: '700',
-    fontSize: '18px',
-  },
-  
-  metodosGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(3, 1fr)',
-    gap: '10px',
-    marginTop: '8px',
-  },
-  metodoBtn: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: '6px',
-    padding: '14px',
-    background: 'var(--bg-card)',
-    border: '2px solid var(--border)',
-    borderRadius: '10px',
-    color: 'var(--text-muted)',
-    cursor: 'pointer',
-    fontSize: '13px',
-    fontWeight: '600',
-    transition: 'all 0.2s',
-  },
-  metodoBtnActive: {
-    borderColor: 'var(--primary)',
-    background: 'rgba(0, 212, 255, 0.1)',
-    color: 'var(--primary)',
-  },
-  
-  tableContainer: {
-    background: 'var(--bg-card)',
-    borderRadius: '16px',
-    border: '1px solid var(--border)',
-    overflow: 'hidden',
-  },
-  table: {
-    width: '100%',
-    borderCollapse: 'collapse',
-  },
-};
-
-// Agregar estilos de tabla
-styles.table['& th'] = {
-  background: 'var(--bg-input)',
-  padding: '14px 16px',
-  textAlign: 'left',
-  color: 'var(--primary)',
-  fontSize: '12px',
-  fontWeight: '700',
-  textTransform: 'uppercase',
-  letterSpacing: '0.5px',
-  borderBottom: '1px solid var(--border)',
-};
-
-styles.table['& td'] = {
-  padding: '14px 16px',
-  borderBottom: '1px solid var(--border)',
-  fontSize: '14px',
-  color: 'var(--text)',
-};
