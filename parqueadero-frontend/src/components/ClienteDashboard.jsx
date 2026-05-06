@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { tarifaService } from '../services/api';
 import toast from 'react-hot-toast';
-import { LogOut, Car, ShoppingCart, CheckCircle, Clock, Calendar } from 'lucide-react';
+import api from '../services/api';
 
 export default function ClienteDashboard() {
   const { usuario, logout } = useAuth();
@@ -27,13 +27,18 @@ export default function ClienteDashboard() {
   };
 
   const cargarPlanes = async () => {
-    try {
-      const { data } = await tarifaService.planesActivos();
-      setPlanes(data.data);
-    } catch (error) {
-      console.error('Error cargando planes');
+  try {
+    const { data } = await tarifaService.miPlan();
+    if (data.data) {
+      setPlanes([data.data]);
+    } else {
+      setPlanes([]);
     }
-  };
+  } catch (error) {
+    console.error('Error cargando plan');
+    setPlanes([]);
+  }
+};
 
   const comprarPlan = async (e) => {
     e.preventDefault();
@@ -41,7 +46,6 @@ export default function ClienteDashboard() {
       toast.error('Ingrese la placa del vehículo');
       return;
     }
-
     setLoading(true);
     try {
       await tarifaService.planes(formPlan);
@@ -55,81 +59,72 @@ export default function ClienteDashboard() {
     }
   };
 
-  const miPlan = planes.find(p => p.usuario_id === usuario?.id);
+  const miPlan = planes.length > 0 ? planes[0] : null;
+
+  const tipoVehiculos = ['Automovil', 'Campero', 'Camioneta', 'Microbus', 'Motocarro', 'Motocicleta', 'Bicicleta'];
 
   return (
-    <div style={styles.layout}>
-      <aside style={styles.sidebar}>
-        <div style={styles.sidebarHeader}>
-          <Car size={32} color="var(--primary)" />
-          <span style={styles.brand}>Cliente</span>
+    <div style={{ display: 'flex', minHeight: '100vh' }}>
+      <aside style={{ width: '260px', background: 'var(--bg-elevated)', borderRight: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', padding: '24px', position: 'sticky', top: 0, height: '100vh' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '32px', paddingBottom: '20px', borderBottom: '1px solid var(--border-subtle)' }}>
+          <div>
+            <h2 style={{ fontSize: '12px', fontWeight: 700, letterSpacing: '0.5px', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>SGI Parqueadero</h2>
+            <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 500 }}>Aeropuerto Alfonso Bonilla Aragón</span>
+          </div>
         </div>
-        
-        <nav style={styles.nav}>
-          <button onClick={() => setActiveTab('comprar')} style={{...styles.navBtn, ...(activeTab === 'comprar' ? styles.navBtnActive : {})}}>
-            <ShoppingCart size={18} /> Comprar Plan
+        <nav style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1 }}>
+          <button onClick={() => setActiveTab('comprar')} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', borderRadius: '8px', border: 'none', background: activeTab === 'comprar' ? 'rgba(33,150,243,0.08)' : 'transparent', color: activeTab === 'comprar' ? 'var(--primary)' : 'var(--text-muted)', fontSize: '14px', fontWeight: activeTab === 'comprar' ? 600 : 500, cursor: 'pointer', fontFamily: 'var(--font-family)' }}>
+            🛒 Comprar Plan
           </button>
-          <button onClick={() => setActiveTab('miplan')} style={{...styles.navBtn, ...(activeTab === 'miplan' ? styles.navBtnActive : {})}}>
-            <CheckCircle size={18} /> Mi Plan
+          <button onClick={() => setActiveTab('miplan')} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', borderRadius: '8px', border: 'none', background: activeTab === 'miplan' ? 'rgba(33,150,243,0.08)' : 'transparent', color: activeTab === 'miplan' ? 'var(--primary)' : 'var(--text-muted)', fontSize: '14px', fontWeight: activeTab === 'miplan' ? 600 : 500, cursor: 'pointer', fontFamily: 'var(--font-family)' }}>
+            ✅ Mi Plan
           </button>
-          <button onClick={() => setActiveTab('tarifas')} style={{...styles.navBtn, ...(activeTab === 'tarifas' ? styles.navBtnActive : {})}}>
-            <Clock size={18} /> Tarifas
+          <button onClick={() => setActiveTab('tarifas')} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', borderRadius: '8px', border: 'none', background: activeTab === 'tarifas' ? 'rgba(33,150,243,0.08)' : 'transparent', color: activeTab === 'tarifas' ? 'var(--primary)' : 'var(--text-muted)', fontSize: '14px', fontWeight: activeTab === 'tarifas' ? 600 : 500, cursor: 'pointer', fontFamily: 'var(--font-family)' }}>
+            💰 Tarifas
           </button>
         </nav>
-
-        <div style={styles.sidebarFooter}>
-          <span style={{fontSize: '13px'}}>{usuario?.nombre}</span>
-          <button onClick={logout} style={styles.logoutBtn}><LogOut size={18} /></button>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '16px', borderTop: '1px solid var(--border-subtle)', color: 'var(--text-muted)' }}>
+          <span style={{ fontSize: '13px' }}>{usuario?.nombre}</span>
+          <button onClick={logout} style={{ background: 'transparent', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: '4px' }}>🚪</button>
         </div>
       </aside>
 
-      <main style={styles.main}>
-        <h2 style={styles.pageTitle}>
+      <main style={{ flex: 1, padding: '32px', overflow: 'auto' }}>
+        <h1 style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '28px' }}>
           {activeTab === 'comprar' && 'Comprar Plan Mensual'}
           {activeTab === 'miplan' && 'Mi Plan Actual'}
           {activeTab === 'tarifas' && 'Tarifas Vigentes'}
-        </h2>
+        </h1>
 
         {activeTab === 'comprar' && (
-          <div style={styles.formCard}>
-            <form onSubmit={comprarPlan} style={styles.form}>
-              <div style={styles.formRow}>
-                <div style={styles.inputGroup}>
-                  <label style={styles.label}>Placa del Vehículo *</label>
-                  <input
-                    value={formPlan.placa}
-                    onChange={(e) => setFormPlan({...formPlan, placa: e.target.value.toUpperCase()})}
-                    style={styles.input}
-                    placeholder="ABC123"
-                    maxLength={10}
-                  />
+          <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', borderRadius: '16px', padding: '32px' }}>
+            <form onSubmit={comprarPlan} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1, minWidth: '200px' }}>
+                  <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Placa *</label>
+                  <input value={formPlan.placa} onChange={(e) => setFormPlan({...formPlan, placa: e.target.value.toUpperCase()})} style={{ padding: '12px 16px', background: 'var(--bg-input)', border: '1px solid var(--border-default)', borderRadius: '8px', color: 'var(--text-primary)', fontSize: '16px', fontFamily: 'var(--font-family)', outline: 'none' }} placeholder="ABC123" maxLength={10} />
                 </div>
-                <div style={styles.inputGroup}>
-                  <label style={styles.label}>Tipo de Vehículo</label>
-                  <select value={formPlan.tipo_vehiculo} onChange={(e) => setFormPlan({...formPlan, tipo_vehiculo: e.target.value})} style={styles.input}>
-                    <option>Automovil</option>
-                    <option>Campero</option>
-                    <option>Camioneta</option>
-                    <option>Microbus</option>
-                    <option>Motocarro</option>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1, minWidth: '200px' }}>
+                  <label style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Tipo Vehículo</label>
+                  <select value={formPlan.tipo_vehiculo} onChange={(e) => setFormPlan({...formPlan, tipo_vehiculo: e.target.value})} style={{ padding: '12px 16px', background: 'var(--bg-input)', border: '1px solid var(--border-default)', borderRadius: '8px', color: 'var(--text-primary)', fontSize: '16px', fontFamily: 'var(--font-family)', outline: 'none' }}>
+                    {tipoVehiculos.map(t => <option key={t}>{t}</option>)}
                   </select>
                 </div>
               </div>
-              <button type="submit" style={styles.btnPrimary} disabled={loading}>
-                <ShoppingCart size={20} />
+              <button type="submit" disabled={loading} style={{ padding: '14px', background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: '10px', fontSize: '15px', fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--font-family)' }}>
                 {loading ? 'Procesando...' : 'Comprar Plan Mensual'}
               </button>
             </form>
 
-            <div style={{marginTop: '32px'}}>
-              <h3 style={{color: 'var(--text-muted)', marginBottom: '16px', fontSize: '16px'}}>Precios de Planes Mensuales</h3>
-              <div style={styles.tarifasGrid}>
-                {tarifas.map((t) => (
-                  <div key={t.id} style={styles.tarifaMiniCard}>
-                    <Car size={20} color="var(--primary)" />
+            <div style={{ marginTop: '32px' }}>
+              <h3 style={{ color: 'var(--text-muted)', marginBottom: '16px', fontSize: '14px', textTransform: 'uppercase' }}>Planes Disponibles</h3>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '12px' }}>
+                {tarifas.map(t => (
+                  <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px', background: 'var(--bg-input)', borderRadius: '10px', border: '1px solid var(--border-subtle)' }}>
+                    <span style={{ fontSize: '20px' }}>🚗</span>
                     <div>
-                      <p style={{fontWeight: '600', color: 'var(--text)'}}>{t.tipo_vehiculo}</p>
-                      <p style={{color: 'var(--warning)', fontWeight: '700', fontSize: '18px'}}>${Number(t.plan_mensual).toLocaleString()}/mes</p>
+                      <p style={{ fontWeight: 600, color: 'var(--text)', fontSize: '13px' }}>{t.tipo_vehiculo}</p>
+                      <p style={{ color: 'var(--warning)', fontWeight: 700, fontSize: '16px' }}>${Number(t.plan_mensual).toLocaleString()}/mes</p>
                     </div>
                   </div>
                 ))}
@@ -139,74 +134,45 @@ export default function ClienteDashboard() {
         )}
 
         {activeTab === 'miplan' && (
-          <div style={styles.formCard}>
+          <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', borderRadius: '16px', padding: '32px' }}>
             {miPlan ? (
-              <div style={styles.planCard}>
-                <div style={{display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px'}}>
-                  <CheckCircle size={40} color="var(--success)" />
-                  <h3 style={{color: 'var(--success)', fontSize: '22px'}}>Plan Activo</h3>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
+                  <span style={{ fontSize: '40px' }}>✅</span>
+                  <h3 style={{ color: 'var(--success)', fontSize: '22px', fontWeight: 700 }}>Plan Activo</h3>
                 </div>
-                
-                <div style={styles.planDetails}>
-                  <div style={styles.planRow}>
-                    <span>Placa:</span>
-                    <strong style={{color: 'var(--primary)'}}>{miPlan.placa}</strong>
-                  </div>
-                  <div style={styles.planRow}>
-                    <span>Tipo:</span>
-                    <strong>{miPlan.tipo_vehiculo}</strong>
-                  </div>
-                  <div style={styles.planRow}>
-                    <span>Monto:</span>
-                    <strong style={{color: 'var(--warning)'}}>${Number(miPlan.monto).toLocaleString()}</strong>
-                  </div>
-                  <div style={styles.planRow}>
-                    <span>Inicio:</span>
-                    <strong>{new Date(miPlan.fecha_inicio).toLocaleDateString()}</strong>
-                  </div>
-                  <div style={styles.planRow}>
-                    <span>Vencimiento:</span>
-                    <strong>{new Date(miPlan.fecha_vencimiento).toLocaleDateString()}</strong>
-                  </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '20px', background: 'var(--bg-input)', borderRadius: '10px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '15px', color: 'var(--text-muted)' }}><span>Placa:</span><strong style={{ color: 'var(--primary)' }}>{miPlan.placa}</strong></div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '15px', color: 'var(--text-muted)' }}><span>Tipo:</span><strong>{miPlan.tipo_vehiculo}</strong></div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '15px', color: 'var(--text-muted)' }}><span>Monto:</span><strong style={{ color: 'var(--warning)' }}>${Number(miPlan.monto).toLocaleString()}</strong></div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '15px', color: 'var(--text-muted)' }}><span>Inicio:</span><strong>{new Date(miPlan.fecha_inicio).toLocaleDateString()}</strong></div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '15px', color: 'var(--text-muted)' }}><span>Vencimiento:</span><strong>{new Date(miPlan.fecha_vencimiento).toLocaleDateString()}</strong></div>
                 </div>
-
-                <div style={{...styles.planBadge, marginTop: '20px'}}>
-                  <Calendar size={18} />
-                  <span>
-                    Vigente hasta {new Date(miPlan.fecha_vencimiento).toLocaleDateString()}
-                  </span>
+                <div style={{ marginTop: '20px', padding: '14px 20px', background: 'var(--success-bg)', borderRadius: '10px', color: 'var(--success)', fontWeight: 600, fontSize: '14px' }}>
+                  📅 Vigente hasta {new Date(miPlan.fecha_vencimiento).toLocaleDateString()}
                 </div>
               </div>
             ) : (
-              <div style={{textAlign: 'center', padding: '40px'}}>
-                <Car size={64} color="var(--text-muted)" />
-                <h3 style={{color: 'var(--text-muted)', marginTop: '16px'}}>No tienes un plan activo</h3>
-                <p style={{color: 'var(--text-muted)', marginTop: '8px'}}>Ve a "Comprar Plan" para adquirir uno</p>
+              <div style={{ textAlign: 'center', padding: '60px 20px' }}>
+                <span style={{ fontSize: '64px' }}>🚗</span>
+                <h3 style={{ color: 'var(--text-muted)', marginTop: '16px', fontSize: '20px' }}>No tienes un plan activo</h3>
+                <p style={{ color: 'var(--text-muted)', marginTop: '8px', fontSize: '14px' }}>Ve a "Comprar Plan" para adquirir uno</p>
               </div>
             )}
           </div>
         )}
 
         {activeTab === 'tarifas' && (
-          <div style={styles.tarifasGridFull}>
-            {tarifas.map((t) => (
-              <div key={t.id} style={styles.tarifaCard}>
-                <div style={{display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px'}}>
-                  <Car size={28} color="var(--primary)" />
-                  <h3 style={{color: 'var(--text)', fontSize: '18px'}}>{t.tipo_vehiculo}</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '20px' }}>
+            {tarifas.map(t => (
+              <div key={t.id} style={{ background: 'var(--bg-elevated)', borderRadius: '12px', padding: '24px', border: '1px solid var(--border-subtle)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+                  <span style={{ fontSize: '24px' }}>🚗</span>
+                  <h3 style={{ color: 'var(--text)', fontSize: '16px', fontWeight: 700 }}>{t.tipo_vehiculo}</h3>
                 </div>
-                <div style={styles.tarifaDetailRow}>
-                  <span>Primera Hora</span>
-                  <strong>${Number(t.primera_hora).toLocaleString()}</strong>
-                </div>
-                <div style={styles.tarifaDetailRow}>
-                  <span>Hora Adicional</span>
-                  <strong>${Number(t.hora_adicional).toLocaleString()}</strong>
-                </div>
-                <div style={{...styles.tarifaDetailRow, borderTop: '1px solid var(--border)', paddingTop: '12px', marginTop: '8px'}}>
-                  <span>Plan Mensual</span>
-                  <strong style={{color: 'var(--warning)', fontSize: '18px'}}>${Number(t.plan_mensual).toLocaleString()}</strong>
-                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', color: 'var(--text-muted)', fontSize: '14px', borderBottom: '1px solid var(--border-subtle)' }}><span>1ra Hora</span><strong>${Number(t.primera_hora).toLocaleString()}</strong></div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', color: 'var(--text-muted)', fontSize: '14px', borderBottom: '1px solid var(--border-subtle)' }}><span>Hora Adicional</span><strong>${Number(t.hora_adicional).toLocaleString()}</strong></div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0 0 0', color: 'var(--text-muted)', fontSize: '14px' }}><span>Plan Mensual</span><strong style={{ color: 'var(--warning)', fontSize: '18px' }}>${Number(t.plan_mensual).toLocaleString()}</strong></div>
               </div>
             ))}
           </div>
@@ -215,36 +181,3 @@ export default function ClienteDashboard() {
     </div>
   );
 }
-
-const styles = {
-  layout: { display: 'flex', minHeight: '100vh' },
-  sidebar: { width: '260px', background: 'var(--bg-card)', borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', padding: '24px', position: 'sticky', top: 0, height: '100vh' },
-  sidebarHeader: { display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '32px', paddingBottom: '20px', borderBottom: '1px solid var(--border)' },
-  brand: { fontSize: '20px', fontWeight: '700', color: 'var(--primary)' },
-  nav: { display: 'flex', flexDirection: 'column', gap: '4px', flex: 1 },
-  navBtn: { display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', borderRadius: '8px', border: 'none', background: 'transparent', color: 'var(--text-muted)', fontSize: '15px', cursor: 'pointer', transition: 'all 0.2s', textAlign: 'left' },
-  navBtnActive: { background: 'rgba(0, 212, 255, 0.1)', color: 'var(--primary)', fontWeight: '600' },
-  sidebarFooter: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '16px', borderTop: '1px solid var(--border)', color: 'var(--text-muted)' },
-  logoutBtn: { background: 'transparent', border: 'none', color: 'var(--danger)', cursor: 'pointer', padding: '4px', borderRadius: '6px' },
-  main: { flex: 1, padding: '32px', overflow: 'auto' },
-  pageTitle: { fontSize: '26px', fontWeight: '700', marginBottom: '28px', color: 'var(--primary)' },
-  formCard: { background: 'var(--bg-card)', borderRadius: '16px', padding: '32px', border: '1px solid var(--border)' },
-  form: { display: 'flex', flexDirection: 'column', gap: '20px' },
-  formRow: { display: 'flex', gap: '20px', flexWrap: 'wrap' },
-  inputGroup: { display: 'flex', flexDirection: 'column', gap: '8px', flex: 1, minWidth: '200px' },
-  label: { fontSize: '13px', fontWeight: '600', color: 'var(--text-muted)', textTransform: 'uppercase' },
-  input: { padding: '12px 16px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg-input)', color: 'var(--text)', fontSize: '16px', outline: 'none', width: '100%' },
-  btnPrimary: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', padding: '14px 28px', background: 'var(--primary)', color: '#0f1923', border: 'none', borderRadius: '10px', fontSize: '16px', fontWeight: '700', cursor: 'pointer' },
-  
-  tarifasGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '12px' },
-  tarifaMiniCard: { display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', background: 'var(--bg-input)', borderRadius: '10px', border: '1px solid var(--border)' },
-  
-  tarifasGridFull: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '20px' },
-  tarifaCard: { background: 'var(--bg-card)', borderRadius: '12px', padding: '24px', border: '1px solid var(--border)' },
-  tarifaDetailRow: { display: 'flex', justifyContent: 'space-between', padding: '8px 0', color: 'var(--text-muted)', fontSize: '15px' },
-  
-  planCard: { padding: '16px 0' },
-  planDetails: { display: 'flex', flexDirection: 'column', gap: '12px', padding: '20px', background: 'var(--bg-input)', borderRadius: '10px' },
-  planRow: { display: 'flex', justifyContent: 'space-between', fontSize: '15px', color: 'var(--text-muted)' },
-  planBadge: { display: 'flex', alignItems: 'center', gap: '10px', padding: '14px 20px', background: 'rgba(0, 255, 136, 0.1)', borderRadius: '10px', color: 'var(--success)', fontWeight: '600', fontSize: '14px' },
-};

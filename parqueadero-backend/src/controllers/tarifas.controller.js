@@ -265,6 +265,31 @@ async function consultarCupos(req, res) {
   }
 }
 
+
+async function getMiPlan(req, res) {
+  try {
+    const { pool } = require('../config/db');
+    const [rows] = await pool.execute(
+      `SELECT pm.*, u.nombre_completo, u.email 
+       FROM planes_mensuales pm 
+       JOIN usuarios u ON pm.usuario_id = u.id 
+       WHERE pm.usuario_id = ? AND pm.activo = TRUE AND pm.fecha_vencimiento >= CURDATE()
+       ORDER BY pm.fecha_vencimiento DESC
+       LIMIT 1`,
+      [req.usuario.id]
+    );
+    
+    res.json({
+      success: true,
+      data: rows[0] || null
+    });
+  } catch (error) {
+    console.error('Error en getMiPlan:', error);
+    res.status(500).json({ success: false, message: 'Error interno' });
+  }
+}
+
+
 module.exports = {
   getTarifas,
   actualizarTarifa,
@@ -272,5 +297,6 @@ module.exports = {
   comprarPlanMensual,
   getPlanesActivos,
   generarReporte,
-  consultarCupos
+  consultarCupos,
+  getMiPlan
 };

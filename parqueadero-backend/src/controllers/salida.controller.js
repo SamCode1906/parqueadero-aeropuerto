@@ -166,4 +166,24 @@ async function calcularValorPagar(req, res) {
   }
 }
 
-module.exports = { registrarSalida, calcularValorPagar };
+async function historialHoy(req, res) {
+  try {
+    const hoy = new Date().toISOString().split('T')[0];
+    const { pool } = require('../config/db');
+    const [rows] = await pool.execute(
+      `SELECT s.*, u.nombre_completo as operario_nombre 
+      FROM salidas s 
+      LEFT JOIN usuarios u ON s.operario_id = u.id 
+      WHERE DATE(s.fecha_salida) = ?
+      ORDER BY s.fecha_salida DESC`,
+      [hoy]
+    );
+    
+    res.json({ success: true, data: rows });
+  } catch (error) {
+    console.error('Error historialHoy:', error);
+    res.status(500).json({ success: false, message: 'Error interno' });
+  }
+}
+
+module.exports = { registrarSalida, calcularValorPagar, historialHoy };

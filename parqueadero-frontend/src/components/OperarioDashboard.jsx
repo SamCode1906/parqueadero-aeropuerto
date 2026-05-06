@@ -20,6 +20,11 @@ export default function OperarioDashboard() {
   const [calculoSalida, setCalculoSalida] = useState(null);
   const [metodoPago, setMetodoPago] = useState('efectivo');
   const [calculando, setCalculando] = useState(false);
+  
+  const [sugerenciasPlacas, setSugerenciasPlacas] = useState([]);
+  const [mostrarSugerencias, setMostrarSugerencias] = useState(false);
+  
+  const [historial, setHistorial] = useState([]);
 
   useEffect(() => {
     cargarDatos();
@@ -30,6 +35,16 @@ export default function OperarioDashboard() {
     return () => clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    const handleClick = (e) => {
+      if (!e.target.closest('.sugerencias-container')) {
+        setMostrarSugerencias(false);
+      }
+    };
+    document.addEventListener('click', handleClick);
+    return () => document.removeEventListener('click', handleClick);
+  }, []);
+
   const cargarDatos = () => {
     cargarIngresos();
     cargarCupos();
@@ -38,7 +53,7 @@ export default function OperarioDashboard() {
   const cargarIngresos = async () => {
     try {
       const { data } = await ingresoService.activos();
-      setIngresos(data.data.ingresos);
+      setIngresos(data.data.ingresos || []);
     } catch (error) {
       console.error('Error cargando ingresos');
     }
@@ -53,12 +68,52 @@ export default function OperarioDashboard() {
     }
   };
 
+  const cargarHistorial = async () => {
+  try {
+    const hoy = new Date().toISOString().split('T')[0];
+    const { data } = await tarifaService.reportes(hoy, hoy);
+    setHistorial(data.data?.detalle_salidas || []);
+  } catch (error) {
+    // Si falla, intentar obtener historial de otra forma
+    try {
+      const { data } = await salidaService.historialHoy();
+      setHistorial(data.data || []);
+    } catch (err) {
+      toast.error('Error cargando historial');
+      setHistorial([]);
+    }
+  }
+};
+
+  const filtrarPlacas = (texto) => {
+    if (texto.length >= 1) {
+      const filtradas = ingresos.filter(i => 
+        i.placa.toUpperCase().startsWith(texto.toUpperCase())
+      );
+      setSugerenciasPlacas(filtradas);
+      setMostrarSugerencias(filtradas.length > 0);
+    } else {
+      setSugerenciasPlacas([]);
+      setMostrarSugerencias(false);
+    }
+  };
+
+  const seleccionarPlaca = (placa) => {
+    setPlacaSalida(placa);
+    setMostrarSugerencias(false);
+    setCalculoSalida(null);
+  };
+
   const registrarIngreso = async (e) => {
     e.preventDefault();
     if (!placaIngreso.trim()) return toast.error('Ingrese la placa');
     setLoading(true);
     try {
-      await ingresoService.crear({ placa: placaIngreso.toUpperCase(), tipo_vehiculo: tipoVehiculo, tipo_registro: tipoRegistro });
+      await ingresoService.crear({ 
+        placa: placaIngreso.toUpperCase(), 
+        tipo_vehiculo: tipoVehiculo, 
+        tipo_registro: tipoRegistro 
+      });
       toast.success('Vehículo registrado');
       setPlacaIngreso('');
       cargarDatos();
@@ -72,6 +127,7 @@ export default function OperarioDashboard() {
   const calcularSalida = async () => {
     if (!placaSalida.trim()) return toast.error('Ingrese la placa');
     setCalculando(true);
+    setMostrarSugerencias(false);
     try {
       const { data } = await salidaService.calcular(placaSalida.toUpperCase());
       setCalculoSalida(data.data);
@@ -86,7 +142,10 @@ export default function OperarioDashboard() {
   const registrarSalida = async () => {
     setLoading(true);
     try {
-      const { data } = await salidaService.registrar({ placa: placaSalida.toUpperCase(), metodo_pago: metodoPago });
+      const { data } = await salidaService.registrar({ 
+        placa: placaSalida.toUpperCase(), 
+        metodo_pago: metodoPago 
+      });
       toast.success(data.message || 'Salida registrada');
       setPlacaSalida('');
       setCalculoSalida(null);
@@ -113,14 +172,14 @@ export default function OperarioDashboard() {
           <div className="brand-icon">
             <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
               <rect x="2" y="6" width="28" height="20" rx="3" stroke="var(--primary)" strokeWidth="1.5"/>
-              <rect x="8" y="13" width="16" height="13" rx="2" fill="rgba(0,229,255,0.08)" stroke="var(--primary)" strokeWidth="1.5"/>
+              <rect x="8" y="13" width="16" height="13" rx="2" fill="rgba(33,150,243,0.08)" stroke="var(--primary)" strokeWidth="1.5"/>
               <circle cx="12" cy="22" r="2" fill="var(--primary)"/>
               <circle cx="20" cy="22" r="2" fill="var(--primary)"/>
             </svg>
           </div>
           <div>
             <h2 style={{ fontSize: '12px', fontWeight: 700, letterSpacing: '0.5px', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>SGI Parqueadero</h2>
-<span style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 500 }}>Aeropuerto Alfonso Bonilla Aragón</span>
+            <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 500 }}>Aeropuerto Alfonso Bonilla Aragón</span>
           </div>
         </div>
 
@@ -137,6 +196,10 @@ export default function OperarioDashboard() {
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="7" cy="7" r="3" stroke="currentColor" strokeWidth="1.5"/><circle cx="13" cy="7" r="3" stroke="currentColor" strokeWidth="1.5"/><rect x="2" y="12" width="16" height="6" rx="2" stroke="currentColor" strokeWidth="1.5"/></svg>
             Vehículos Activos
             {ingresos.length > 0 && <span className="nav-badge">{ingresos.length}</span>}
+          </button>
+          <button onClick={() => { setActiveTab('historial'); cargarHistorial(); }} className={`nav-item ${activeTab === 'historial' ? 'active' : ''}`}>
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><rect x="2" y="3" width="16" height="14" rx="2" stroke="currentColor" strokeWidth="1.5"/><path d="M6 8h8M6 12h5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+            Historial de Salidas
           </button>
         </nav>
 
@@ -177,6 +240,7 @@ export default function OperarioDashboard() {
             {activeTab === 'ingreso' && 'Registro de Ingreso'}
             {activeTab === 'salida' && 'Registro de Salida'}
             {activeTab === 'activos' && 'Vehículos en Parqueadero'}
+            {activeTab === 'historial' && 'Historial de Salidas'}
           </h1>
           <div className="header-info">
             <span className="clock mono">{horaActual.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
@@ -184,6 +248,7 @@ export default function OperarioDashboard() {
           </div>
         </header>
 
+        {/* INGRESO */}
         {activeTab === 'ingreso' && (
           <div className="card animate-fade-in">
             <div className="card-header">
@@ -192,23 +257,12 @@ export default function OperarioDashboard() {
             </div>
             <form onSubmit={registrarIngreso} className="form-grid">
               <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end' }}>
-  <div className="input-group" style={{ flex: 1 }}>
-    <label>Placa *</label>
-    <input value={placaIngreso} onChange={(e) => setPlacaIngreso(e.target.value.toUpperCase())} placeholder="ABC123" maxLength={10} />
-  </div>
-  <button
-    type="button"
-    onClick={() => setMostrarCamara(true)}
-    style={{
-      padding: '12px 16px', background: 'var(--bg-input)', color: 'var(--primary)',
-      border: '1px solid var(--primary)', borderRadius: 'var(--radius-md)',
-      fontWeight: 700, cursor: 'pointer', fontSize: '14px', whiteSpace: 'nowrap',
-    }}
-    title="Leer placa con cámara"
-  >
-    📷 Leer
-  </button>
-</div>
+                <div className="input-group" style={{ flex: 1 }}>
+                  <label>Placa *</label>
+                  <input value={placaIngreso} onChange={(e) => setPlacaIngreso(e.target.value.toUpperCase())} placeholder="ABC123" maxLength={10} />
+                </div>
+                <button type="button" onClick={() => setMostrarCamara(true)} style={{ padding: '12px 16px', background: 'var(--bg-input)', color: 'var(--primary)', border: '1px solid var(--primary)', borderRadius: 'var(--radius-md)', fontWeight: 700, cursor: 'pointer', fontSize: '14px', whiteSpace: 'nowrap' }} title="Leer placa con cámara">📷 Leer</button>
+              </div>
               <div className="input-group">
                 <label>Tipo Vehículo</label>
                 <select value={tipoVehiculo} onChange={(e) => setTipoVehiculo(e.target.value)}>
@@ -229,13 +283,49 @@ export default function OperarioDashboard() {
           </div>
         )}
 
+        {/* SALIDA */}
         {activeTab === 'salida' && (
           <div className="card animate-fade-in">
             <div className="card-header"><h3>Procesar Salida</h3></div>
-            <div className="salida-search">
-              <input value={placaSalida} onChange={(e) => { setPlacaSalida(e.target.value.toUpperCase()); setCalculoSalida(null); }} placeholder="Buscar placa..." />
+            <div className="salida-search sugerencias-container" style={{ position: 'relative' }}>
+              <div style={{ flex: 1, position: 'relative' }}>
+                <input 
+                  value={placaSalida} 
+                  onChange={(e) => { setPlacaSalida(e.target.value.toUpperCase()); setCalculoSalida(null); filtrarPlacas(e.target.value); }} 
+                  onFocus={() => { if (ingresos.length > 0 && placaSalida.length >= 1) setMostrarSugerencias(true); }}
+                  placeholder="Buscar placa..." 
+                  style={{ width: '100%' }}
+                />
+                {mostrarSugerencias && sugerenciasPlacas.length > 0 && (
+                  <div style={{
+                    position: 'absolute', top: '100%', left: 0, right: 0,
+                    background: 'var(--bg-elevated)', border: '1px solid var(--border-default)',
+                    borderRadius: '0 0 12px 12px', maxHeight: '200px', overflow: 'auto',
+                    zIndex: 100, boxShadow: 'var(--shadow-lg)',
+                  }}>
+                    {sugerenciasPlacas.map(ingreso => (
+                      <div
+                        key={ingreso.id}
+                        onClick={() => seleccionarPlaca(ingreso.placa)}
+                        style={{
+                          padding: '12px 16px', cursor: 'pointer',
+                          borderBottom: '1px solid var(--border-subtle)',
+                          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                        }}
+                        onMouseEnter={(e) => e.target.style.background = 'var(--bg-hover)'}
+                        onMouseLeave={(e) => e.target.style.background = 'transparent'}
+                      >
+                        <span style={{ fontWeight: 700, color: 'var(--primary)', fontFamily: 'var(--font-mono)' }}>{ingreso.placa}</span>
+                        <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                          {ingreso.tipo_vehiculo} · {ingreso.es_plan_mensual ? 'Plan' : 'Diario'} · {Math.ceil((new Date() - new Date(ingreso.fecha_ingreso)) / 3600000)}h
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
               <button onClick={calcularSalida} disabled={calculando} className="btn-search">
-                {calculando ? 'Buscando...' : 'Calcular'}
+                {calculando ? '...' : 'Calcular'}
               </button>
             </div>
 
@@ -249,22 +339,10 @@ export default function OperarioDashboard() {
                 ) : (
                   <>
                     <div className="calculo-grid">
-                      <div className="calculo-stat">
-                        <span>Horas</span>
-                        <strong>{calculoSalida.total_horas}</strong>
-                      </div>
-                      <div className="calculo-stat">
-                        <span>Tarifa base</span>
-                        <strong>${Number(calculoSalida.tarifa_primera_hora).toLocaleString()}</strong>
-                      </div>
-                      <div className="calculo-stat">
-                        <span>Adicional</span>
-                        <strong>${Number(calculoSalida.tarifa_hora_adicional).toLocaleString()}</strong>
-                      </div>
-                      <div className="calculo-stat highlight">
-                        <span>TOTAL</span>
-                        <strong>${Number(calculoSalida.total_pagar).toLocaleString()}</strong>
-                      </div>
+                      <div className="calculo-stat"><span>Horas</span><strong>{calculoSalida.total_horas}</strong></div>
+                      <div className="calculo-stat"><span>Tarifa base</span><strong>${Number(calculoSalida.tarifa_primera_hora).toLocaleString()}</strong></div>
+                      <div className="calculo-stat"><span>Adicional</span><strong>${Number(calculoSalida.tarifa_hora_adicional).toLocaleString()}</strong></div>
+                      <div className="calculo-stat highlight"><span>TOTAL</span><strong>${Number(calculoSalida.total_pagar).toLocaleString()}</strong></div>
                     </div>
                     <div className="metodo-pago">
                       <label>Método de Pago</label>
@@ -286,6 +364,7 @@ export default function OperarioDashboard() {
           </div>
         )}
 
+        {/* ACTIVOS */}
         {activeTab === 'activos' && (
           <div className="card animate-fade-in">
             <div className="card-header">
@@ -301,14 +380,7 @@ export default function OperarioDashboard() {
               <div className="table-wrapper">
                 <table className="data-table">
                   <thead>
-                    <tr>
-                      <th>Placa</th>
-                      <th>Tipo</th>
-                      <th>Registro</th>
-                      <th>Plan</th>
-                      <th>Ingreso</th>
-                      <th>Permanencia</th>
-                    </tr>
+                    <tr><th>Placa</th><th>Tipo</th><th>Registro</th><th>Plan</th><th>Ingreso</th><th>Permanencia</th></tr>
                   </thead>
                   <tbody>
                     {ingresos.map(ingreso => {
@@ -330,7 +402,47 @@ export default function OperarioDashboard() {
             )}
           </div>
         )}
-              {mostrarCamara && (
+
+        {/* HISTORIAL */}
+        {activeTab === 'historial' && (
+          <div className="card animate-fade-in">
+            <div className="card-header">
+              <h3>Historial de Salidas - Hoy</h3>
+              <span className="badge badge-primary">{historial.length} salidas</span>
+            </div>
+            {historial.length === 0 ? (
+              <div className="empty-state">
+                <svg width="64" height="64" viewBox="0 0 64 64" fill="none"><rect x="8" y="16" width="48" height="32" rx="4" stroke="var(--text-muted)" strokeWidth="1.5"/></svg>
+                <p>No hay salidas registradas hoy</p>
+              </div>
+            ) : (
+              <div className="table-wrapper">
+                <table className="data-table">
+                  <thead>
+                    <tr><th>Placa</th><th>Tipo</th><th>Ingreso</th><th>Salida</th><th>Horas</th><th>Total</th><th>Pago</th><th>Operario</th></tr>
+                  </thead>
+                  <tbody>
+                    {historial.map(salida => (
+                      <tr key={salida.id}>
+                        <td className="mono font-bold" style={{color: 'var(--primary)'}}>{salida.placa}</td>
+                        <td>{salida.tipo_vehiculo}</td>
+                        <td className="text-muted">{new Date(salida.fecha_ingreso).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}</td>
+                        <td className="text-muted">{new Date(salida.fecha_salida).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}</td>
+                        <td>{salida.total_horas}h</td>
+                        <td style={{color: 'var(--warning)', fontWeight: 700}}>${Number(salida.total_pagar).toLocaleString()}</td>
+                        <td><span className={`badge ${salida.metodo_pago === 'efectivo' ? 'badge-success' : salida.metodo_pago === 'transferencia' ? 'badge-info' : 'badge-warning'}`}>{salida.metodo_pago}</span></td>
+                        <td className="text-muted">{salida.operario_nombre || '-'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+      </main>
+
+      {mostrarCamara && (
         <CamaraPlaca
           onPlacaDetectada={(placa) => {
             setPlacaIngreso(placa);
@@ -340,44 +452,24 @@ export default function OperarioDashboard() {
           onClose={() => setMostrarCamara(false)}
         />
       )}
-      </main>
 
       <style>{`
         .dashboard-layout { display: flex; min-height: 100vh; }
-        
-        .sidebar {
-          width: 280px; background: var(--bg-elevated); border-right: 1px solid var(--border-subtle);
-          display: flex; flex-direction: column; padding: 20px; position: sticky; top: 0; height: 100vh;
-        }
+        .sidebar { width: 280px; background: var(--bg-elevated); border-right: 1px solid var(--border-subtle); display: flex; flex-direction: column; padding: 20px; position: sticky; top: 0; height: 100vh; }
         .sidebar-brand { display: flex; align-items: center; gap: 12px; padding-bottom: 24px; border-bottom: 1px solid var(--border-subtle); margin-bottom: 20px; }
         .brand-icon { animation: glow 3s ease-in-out infinite; }
-        .brand-name { font-size: 20px; font-weight: 900; letter-spacing: 3px; color: var(--primary); }
-        .brand-role { font-size: 11px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
-        
         .sidebar-nav { display: flex; flex-direction: column; gap: 4px; flex: 1; }
-        .nav-item {
-          display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: var(--radius-md);
-          border: none; background: transparent; color: var(--text-muted); font-size: 14px; font-weight: 500;
-          cursor: pointer; transition: all var(--transition-fast); font-family: var(--font-family); position: relative;
-        }
+        .nav-item { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: var(--radius-md); border: none; background: transparent; color: var(--text-muted); font-size: 14px; font-weight: 500; cursor: pointer; transition: all var(--transition-fast); font-family: var(--font-family); position: relative; }
         .nav-item:hover { background: var(--bg-hover); color: var(--text-secondary); }
-        .nav-item.active { background: rgba(0,229,255,0.08); color: var(--primary); font-weight: 600; }
-        .nav-badge {
-          position: absolute; right: 12px; background: var(--primary); color: #000; font-size: 11px;
-          font-weight: 700; padding: 2px 8px; border-radius: var(--radius-full); min-width: 22px; text-align: center;
-        }
-        
-        .cupos-widget {
-          margin-top: auto; margin-bottom: 16px; padding: 16px; background: var(--bg-surface);
-          border-radius: var(--radius-lg); border: 1px solid var(--border-subtle);
-        }
+        .nav-item.active { background: rgba(33,150,243,0.08); color: var(--primary); font-weight: 600; }
+        .nav-badge { position: absolute; right: 12px; background: var(--primary); color: #000; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: var(--radius-full); min-width: 22px; text-align: center; }
+        .cupos-widget { margin-top: auto; margin-bottom: 16px; padding: 16px; background: var(--bg-surface); border-radius: var(--radius-lg); border: 1px solid var(--border-subtle); }
         .cupos-header { display: flex; justify-content: space-between; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 10px; }
         .cupos-bar { height: 4px; background: var(--border-default); border-radius: 2px; overflow: hidden; margin-bottom: 8px; }
         .cupos-fill { height: 100%; border-radius: 2px; background: var(--success); transition: width 0.5s; }
         .cupos-fill.warning { background: var(--warning); }
         .cupos-fill.danger { background: var(--danger); animation: pulse 1.5s ease-in-out infinite; }
         .cupos-footer { display: flex; justify-content: space-between; font-size: 12px; font-weight: 600; }
-        
         .sidebar-footer { display: flex; justify-content: space-between; align-items: center; padding-top: 16px; border-top: 1px solid var(--border-subtle); }
         .user-info { display: flex; align-items: center; gap: 10px; }
         .user-avatar { width: 36px; height: 36px; border-radius: var(--radius-full); background: var(--primary); color: #000; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 16px; }
@@ -385,62 +477,35 @@ export default function OperarioDashboard() {
         .user-role { font-size: 11px; color: var(--text-muted); }
         .btn-logout { background: transparent; border: none; color: var(--text-muted); cursor: pointer; padding: 8px; border-radius: var(--radius-md); transition: all var(--transition-fast); }
         .btn-logout:hover { background: var(--danger-bg); color: var(--danger); }
-        
         .main-content { flex: 1; padding: 32px; overflow: auto; }
         .top-bar { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 32px; flex-wrap: wrap; gap: 16px; }
         .page-title { font-size: 24px; font-weight: 800; color: var(--text-primary); letter-spacing: -0.3px; }
         .header-info { text-align: right; }
         .clock { display: block; font-size: 28px; font-weight: 700; color: var(--primary); }
         .date { font-size: 13px; color: var(--text-muted); text-transform: capitalize; }
-        
-        .card {
-          background: var(--bg-elevated); border: 1px solid var(--border-subtle);
-          border-radius: var(--radius-xl); padding: 28px; margin-bottom: 24px;
-          box-shadow: var(--shadow-md);
-        }
+        .card { background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-radius: var(--radius-xl); padding: 28px; margin-bottom: 24px; box-shadow: var(--shadow-md); }
         .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
         .card-header h3 { font-size: 18px; font-weight: 700; }
-        
-        .badge {
-          padding: 4px 12px; border-radius: var(--radius-full); font-size: 11px; font-weight: 600;
-          text-transform: uppercase; letter-spacing: 0.5px;
-        }
+        .badge { padding: 4px 12px; border-radius: var(--radius-full); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
         .badge-info { background: var(--info-bg); color: var(--info); }
         .badge-warning { background: var(--warning-bg); color: var(--warning); }
         .badge-success { background: var(--success-bg); color: var(--success); }
-        .badge-primary { background: rgba(0,229,255,0.1); color: var(--primary); }
+        .badge-primary { background: rgba(33,150,243,0.1); color: var(--primary); }
         .badge-default { background: var(--bg-surface); color: var(--text-muted); }
-        
-        .form-grid {
-          display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 16px; align-items: end;
-        }
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 16px; align-items: end; }
         @media (max-width: 900px) { .form-grid { grid-template-columns: 1fr 1fr; } }
         @media (max-width: 600px) { .form-grid { grid-template-columns: 1fr; } }
-        
         .input-group { display: flex; flex-direction: column; gap: 6px; }
         .input-group label { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; }
-        .input-group input, .input-group select {
-          padding: 12px 16px; background: var(--bg-input); border: 1px solid var(--border-default);
-          border-radius: var(--radius-md); color: var(--text-primary); font-size: 15px;
-          font-family: var(--font-family); outline: none; transition: all var(--transition-fast);
-        }
-        .input-group input:focus, .input-group select:focus {
-          border-color: var(--border-primary); box-shadow: 0 0 0 3px rgba(0,229,255,0.06);
-        }
-        
-        .btn-primary {
-          padding: 12px 28px; background: var(--primary); color: #000; border: none;
-          border-radius: var(--radius-md); font-size: 14px; font-weight: 700; cursor: pointer;
-          font-family: var(--font-family); transition: all var(--transition-fast); white-space: nowrap;
-        }
-        .btn-primary:hover { background: var(--primary-dark); box-shadow: 0 0 16px rgba(0,229,255,0.2); }
+        .input-group input, .input-group select { padding: 12px 16px; background: var(--bg-input); border: 1px solid var(--border-default); border-radius: var(--radius-md); color: var(--text-primary); font-size: 15px; font-family: var(--font-family); outline: none; transition: all var(--transition-fast); }
+        .input-group input:focus, .input-group select:focus { border-color: var(--border-primary); box-shadow: 0 0 0 3px rgba(33,150,243,0.06); }
+        .btn-primary { padding: 12px 28px; background: var(--primary); color: #fff; border: none; border-radius: var(--radius-md); font-size: 14px; font-weight: 700; cursor: pointer; font-family: var(--font-family); transition: all var(--transition-fast); white-space: nowrap; }
+        .btn-primary:hover { background: var(--primary-dark); }
         .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
-        
         .salida-search { display: flex; gap: 12px; margin-bottom: 24px; }
         .salida-search input { flex: 1; padding: 14px 18px; background: var(--bg-input); border: 1px solid var(--border-default); border-radius: var(--radius-md); color: var(--text-primary); font-size: 16px; font-family: var(--font-family); outline: none; }
         .salida-search input:focus { border-color: var(--border-primary); }
-        .btn-search { padding: 14px 24px; background: var(--primary); color: #000; border: none; border-radius: var(--radius-md); font-weight: 700; cursor: pointer; font-family: var(--font-family); }
-        
+        .btn-search { padding: 14px 24px; background: var(--primary); color: #fff; border: none; border-radius: var(--radius-md); font-weight: 700; cursor: pointer; font-family: var(--font-family); }
         .calculo-result { margin-top: 24px; padding: 24px; background: var(--bg-surface); border-radius: var(--radius-lg); border: 1px solid var(--border-default); }
         .plan-badge { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; background: var(--success-bg); border-radius: var(--radius-md); color: var(--success); font-weight: 600; margin-bottom: 16px; }
         .calculo-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
@@ -450,39 +515,22 @@ export default function OperarioDashboard() {
         .calculo-stat strong { font-size: 20px; color: var(--text-primary); font-family: var(--font-mono); }
         .calculo-stat.highlight { background: rgba(255,215,64,0.08); border: 1px solid rgba(255,215,64,0.2); }
         .calculo-stat.highlight strong { color: var(--warning); font-size: 24px; }
-        
         .metodo-pago { margin-bottom: 20px; }
         .metodo-pago label { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 8px; }
         .metodo-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-        .metodo-btn {
-          padding: 12px; background: var(--bg-card); border: 2px solid var(--border-default);
-          border-radius: var(--radius-md); color: var(--text-secondary); cursor: pointer;
-          font-size: 13px; font-weight: 600; font-family: var(--font-family); transition: all var(--transition-fast);
-        }
+        .metodo-btn { padding: 12px; background: var(--bg-card); border: 2px solid var(--border-default); border-radius: var(--radius-md); color: var(--text-secondary); cursor: pointer; font-size: 13px; font-weight: 600; font-family: var(--font-family); transition: all var(--transition-fast); }
         .metodo-btn:hover { background: var(--bg-hover); }
-        .metodo-btn.active { border-color: var(--primary); background: rgba(0,229,255,0.06); color: var(--primary); }
-        
-        .btn-success-full {
-          width: 100%; padding: 16px; background: var(--success); color: #000; border: none;
-          border-radius: var(--radius-md); font-size: 15px; font-weight: 700; cursor: pointer;
-          font-family: var(--font-family); transition: all var(--transition-fast);
-        }
+        .metodo-btn.active { border-color: var(--primary); background: rgba(33,150,243,0.06); color: var(--primary); }
+        .btn-success-full { width: 100%; padding: 16px; background: var(--success); color: #000; border: none; border-radius: var(--radius-md); font-size: 15px; font-weight: 700; cursor: pointer; font-family: var(--font-family); transition: all var(--transition-fast); }
         .btn-success-full:hover { box-shadow: 0 0 20px rgba(0,230,118,0.3); }
         .btn-success-full:disabled { opacity: 0.5; cursor: not-allowed; }
-        
         .empty-state { text-align: center; padding: 60px 20px; color: var(--text-muted); }
         .empty-state svg { margin-bottom: 16px; opacity: 0.5; }
-        
         .table-wrapper { overflow-x: auto; }
         .data-table { width: 100%; border-collapse: collapse; }
-        .data-table th {
-          padding: 12px 16px; text-align: left; font-size: 10px; font-weight: 700;
-          color: var(--text-muted); text-transform: uppercase; letter-spacing: 1.5px;
-          border-bottom: 1px solid var(--border-default); background: var(--bg-surface);
-        }
+        .data-table th { padding: 12px 16px; text-align: left; font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1.5px; border-bottom: 1px solid var(--border-default); background: var(--bg-surface); }
         .data-table td { padding: 14px 16px; border-bottom: 1px solid var(--border-subtle); font-size: 14px; }
         .data-table tr:hover td { background: var(--bg-hover); }
-        
         .font-bold { font-weight: 700; }
         .text-muted { color: var(--text-muted); }
         .text-success { color: var(--success); }

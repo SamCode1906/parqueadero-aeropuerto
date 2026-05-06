@@ -44,6 +44,7 @@ export const ingresoService = {
 export const salidaService = {
   calcular: (placa) => api.get(`/salidas/calcular/${placa}`),
   registrar: (data) => api.post('/salidas', data),
+  historialHoy: () => api.get('/salidas/historial-hoy'),
 };
 
 export const tarifaService = {
@@ -52,6 +53,7 @@ export const tarifaService = {
   historial: () => api.get('/tarifas/historial'),
   planes: (data) => api.post('/tarifas/planes', data),
   planesActivos: () => api.get('/tarifas/planes/activos'),
+  miPlan: () => api.get('/tarifas/mi-plan'),
   reportes: (fechaInicio, fechaFin) => api.get(`/tarifas/reportes?fecha_inicio=${fechaInicio}&fecha_fin=${fechaFin}`),
   cupos: () => api.get('/tarifas/cupos'),
 };
