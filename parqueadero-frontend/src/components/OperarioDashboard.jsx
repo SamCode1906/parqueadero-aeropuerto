@@ -15,93 +15,56 @@ export default function OperarioDashboard() {
   const [placaIngreso, setPlacaIngreso] = useState('');
   const [tipoVehiculo, setTipoVehiculo] = useState('Automovil');
   const [tipoRegistro, setTipoRegistro] = useState('manual');
-  
   const [placaSalida, setPlacaSalida] = useState('');
   const [calculoSalida, setCalculoSalida] = useState(null);
   const [metodoPago, setMetodoPago] = useState('efectivo');
   const [calculando, setCalculando] = useState(false);
-  
   const [sugerenciasPlacas, setSugerenciasPlacas] = useState([]);
   const [mostrarSugerencias, setMostrarSugerencias] = useState(false);
-  
   const [historial, setHistorial] = useState([]);
 
   useEffect(() => {
     cargarDatos();
-    const interval = setInterval(() => {
-      cargarCupos();
-      setHoraActual(new Date());
-    }, 10000);
+    const interval = setInterval(() => { cargarCupos(); setHoraActual(new Date()); }, 10000);
     return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
-    const handleClick = (e) => {
-      if (!e.target.closest('.sugerencias-container')) {
-        setMostrarSugerencias(false);
-      }
-    };
+    const handleClick = (e) => { if (!e.target.closest('.sug-container')) setMostrarSugerencias(false); };
     document.addEventListener('click', handleClick);
     return () => document.removeEventListener('click', handleClick);
   }, []);
 
-  const cargarDatos = () => {
-    cargarIngresos();
-    cargarCupos();
-  };
-
+  const cargarDatos = () => { cargarIngresos(); cargarCupos(); };
   const cargarIngresos = async () => {
-    try {
-      const { data } = await ingresoService.activos();
-      setIngresos(data.data.ingresos || []);
-    } catch (error) {
-      console.error('Error cargando ingresos');
-    }
+    try { const { data } = await ingresoService.activos(); setIngresos(data.data.ingresos || []); } catch (error) {}
   };
-
   const cargarCupos = async () => {
-    try {
-      const { data } = await tarifaService.cupos();
-      setCupos(data.data);
-    } catch (error) {
-      console.error('Error cargando cupos');
-    }
+    try { const { data } = await tarifaService.cupos(); setCupos(data.data); } catch (error) {}
   };
-
+  
   const cargarHistorial = async () => {
-  try {
-    const hoy = new Date().toISOString().split('T')[0];
-    const { data } = await tarifaService.reportes(hoy, hoy);
-    setHistorial(data.data?.detalle_salidas || []);
-  } catch (error) {
-    // Si falla, intentar obtener historial de otra forma
     try {
       const { data } = await salidaService.historialHoy();
       setHistorial(data.data || []);
-    } catch (err) {
-      toast.error('Error cargando historial');
-      setHistorial([]);
-    }
-  }
-};
-
-  const filtrarPlacas = (texto) => {
-    if (texto.length >= 1) {
-      const filtradas = ingresos.filter(i => 
-        i.placa.toUpperCase().startsWith(texto.toUpperCase())
-      );
-      setSugerenciasPlacas(filtradas);
-      setMostrarSugerencias(filtradas.length > 0);
-    } else {
-      setSugerenciasPlacas([]);
-      setMostrarSugerencias(false);
+    } catch {
+      try {
+        const { data } = await tarifaService.reportes(
+          new Date().toISOString().split('T')[0],
+          new Date().toISOString().split('T')[0]
+        );
+        setHistorial(data.data?.detalle_salidas || []);
+      } catch {
+        setHistorial([]);
+      }
     }
   };
 
-  const seleccionarPlaca = (placa) => {
-    setPlacaSalida(placa);
-    setMostrarSugerencias(false);
-    setCalculoSalida(null);
+  const filtrarPlacas = (texto) => {
+    if (texto.length >= 1) {
+      const f = ingresos.filter(i => i.placa.toUpperCase().startsWith(texto.toUpperCase()));
+      setSugerenciasPlacas(f); setMostrarSugerencias(f.length > 0);
+    } else { setSugerenciasPlacas([]); setMostrarSugerencias(false); }
   };
 
   const registrarIngreso = async (e) => {
@@ -109,175 +72,116 @@ export default function OperarioDashboard() {
     if (!placaIngreso.trim()) return toast.error('Ingrese la placa');
     setLoading(true);
     try {
-      await ingresoService.crear({ 
-        placa: placaIngreso.toUpperCase(), 
-        tipo_vehiculo: tipoVehiculo, 
-        tipo_registro: tipoRegistro 
-      });
-      toast.success('Vehículo registrado');
-      setPlacaIngreso('');
-      cargarDatos();
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Error');
-    } finally {
-      setLoading(false);
-    }
+      await ingresoService.crear({ placa: placaIngreso.toUpperCase(), tipo_vehiculo: tipoVehiculo, tipo_registro: tipoRegistro });
+      toast.success('Ingreso registrado'); setPlacaIngreso(''); cargarDatos();
+    } catch (error) { toast.error(error.response?.data?.message || 'Error'); }
+    finally { setLoading(false); }
   };
 
   const calcularSalida = async () => {
     if (!placaSalida.trim()) return toast.error('Ingrese la placa');
-    setCalculando(true);
-    setMostrarSugerencias(false);
+    setCalculando(true); setMostrarSugerencias(false);
     try {
       const { data } = await salidaService.calcular(placaSalida.toUpperCase());
       setCalculoSalida(data.data);
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Error');
-      setCalculoSalida(null);
-    } finally {
-      setCalculando(false);
-    }
+    } catch (error) { toast.error(error.response?.data?.message || 'Error'); }
+    finally { setCalculando(false); }
   };
 
   const registrarSalida = async () => {
     setLoading(true);
     try {
-      const { data } = await salidaService.registrar({ 
-        placa: placaSalida.toUpperCase(), 
-        metodo_pago: metodoPago 
-      });
-      toast.success(data.message || 'Salida registrada');
-      setPlacaSalida('');
-      setCalculoSalida(null);
-      cargarDatos();
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Error');
-    } finally {
-      setLoading(false);
-    }
+      const { data } = await salidaService.registrar({ placa: placaSalida.toUpperCase(), metodo_pago: metodoPago });
+      toast.success(data.message); setPlacaSalida(''); setCalculoSalida(null); cargarDatos();
+    } catch (error) { toast.error(error.response?.data?.message || 'Error'); }
+    finally { setLoading(false); }
   };
 
   const tipoVehiculos = ['Automovil', 'Campero', 'Camioneta', 'Microbus', 'Motocarro', 'Motocicleta', 'Bicicleta'];
-  const metodosPago = [
-    { value: 'efectivo', label: 'Efectivo', icon: '💵' },
-    { value: 'transferencia', label: 'Transferencia', icon: '🏦' },
-    { value: 'qr', label: 'Código QR', icon: '📱' },
-  ];
 
   return (
-    <div className="dashboard-layout">
+    <div style={s.layout}>
       {/* Sidebar */}
-      <aside className="sidebar">
-        <div className="sidebar-brand">
-          <div className="brand-icon">
-            <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-              <rect x="2" y="6" width="28" height="20" rx="3" stroke="var(--primary)" strokeWidth="1.5"/>
-              <rect x="8" y="13" width="16" height="13" rx="2" fill="rgba(33,150,243,0.08)" stroke="var(--primary)" strokeWidth="1.5"/>
-              <circle cx="12" cy="22" r="2" fill="var(--primary)"/>
-              <circle cx="20" cy="22" r="2" fill="var(--primary)"/>
-            </svg>
-          </div>
-          <div>
-            <h2 style={{ fontSize: '12px', fontWeight: 700, letterSpacing: '0.5px', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>SGI Parqueadero</h2>
-            <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 500 }}>Aeropuerto Alfonso Bonilla Aragón</span>
-          </div>
+      <aside style={s.sidebar}>
+        <div style={s.brand}>
+          <h2 style={s.brandName}>Parqueadero</h2>
+          <span style={s.brandSub}>Aeropuerto Alfonso Bonilla Aragón</span>
         </div>
 
-        <nav className="sidebar-nav">
-          <button onClick={() => { setActiveTab('ingreso'); setCalculoSalida(null); }} className={`nav-item ${activeTab === 'ingreso' ? 'active' : ''}`}>
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 2v6l5-3-5-3zM2 8h16v10H2V8z" stroke="currentColor" strokeWidth="1.5"/></svg>
-            Registrar Ingreso
+        <nav style={s.nav}>
+          <button onClick={() => setActiveTab('ingreso')} style={{...s.navBtn, ...(activeTab === 'ingreso' ? s.navBtnActive : {})}}>
+            Registrar ingreso
           </button>
-          <button onClick={() => setActiveTab('salida')} className={`nav-item ${activeTab === 'salida' ? 'active' : ''}`}>
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M2 8h16v10H2V8zM14 2l-4 4 4 4" stroke="currentColor" strokeWidth="1.5"/></svg>
-            Registrar Salida
+          <button onClick={() => setActiveTab('salida')} style={{...s.navBtn, ...(activeTab === 'salida' ? s.navBtnActive : {})}}>
+            Registrar salida
           </button>
-          <button onClick={() => { setActiveTab('activos'); cargarIngresos(); }} className={`nav-item ${activeTab === 'activos' ? 'active' : ''}`}>
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="7" cy="7" r="3" stroke="currentColor" strokeWidth="1.5"/><circle cx="13" cy="7" r="3" stroke="currentColor" strokeWidth="1.5"/><rect x="2" y="12" width="16" height="6" rx="2" stroke="currentColor" strokeWidth="1.5"/></svg>
-            Vehículos Activos
-            {ingresos.length > 0 && <span className="nav-badge">{ingresos.length}</span>}
+          <button onClick={() => { setActiveTab('activos'); cargarIngresos(); }} style={{...s.navBtn, ...(activeTab === 'activos' ? s.navBtnActive : {})}}>
+            Vehículos activos {ingresos.length > 0 && `(${ingresos.length})`}
           </button>
-          <button onClick={() => { setActiveTab('historial'); cargarHistorial(); }} className={`nav-item ${activeTab === 'historial' ? 'active' : ''}`}>
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><rect x="2" y="3" width="16" height="14" rx="2" stroke="currentColor" strokeWidth="1.5"/><path d="M6 8h8M6 12h5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
-            Historial de Salidas
+          <button onClick={() => { setActiveTab('historial'); cargarHistorial(); }} style={{...s.navBtn, ...(activeTab === 'historial' ? s.navBtnActive : {})}}>
+            Historial de salidas
           </button>
         </nav>
 
         {cupos && (
-          <div className="cupos-widget">
-            <div className="cupos-header">
-              <span>OCUPACIÓN</span>
-              <span className="mono">{cupos.ocupados}/{cupos.total_cupos}</span>
+          <div style={s.cupos}>
+            <div style={s.cuposRow}>
+              <span>Ocupación</span>
+              <span style={s.mono}>{cupos.ocupados}/{cupos.total_cupos}</span>
             </div>
-            <div className="cupos-bar">
-              <div className={`cupos-fill ${cupos.disponibles <= 3 ? 'danger' : cupos.disponibles <= 10 ? 'warning' : ''}`} style={{ width: `${cupos.porcentaje_ocupacion}%` }} />
+            <div style={s.bar}>
+              <div style={{...s.barFill, width: `${cupos.porcentaje_ocupacion}%`, background: cupos.disponibles <= 3 ? '#dc2626' : '#059669'}} />
             </div>
-            <div className="cupos-footer">
-              <span className={cupos.disponibles <= 3 ? 'text-danger' : 'text-success'}>{cupos.disponibles} disponibles</span>
-              <span className="text-muted">{cupos.porcentaje_ocupacion}%</span>
-            </div>
+            <span style={{fontSize: '12px', color: '#6b7280'}}>{cupos.disponibles} disponibles</span>
           </div>
         )}
 
-        <div className="sidebar-footer">
-          <div className="user-info">
-            <div className="user-avatar">{usuario?.nombre?.charAt(0)}</div>
-            <div>
-              <p className="user-name">{usuario?.nombre}</p>
-              <p className="user-role">Operario</p>
-            </div>
-          </div>
-          <button onClick={logout} className="btn-logout" title="Cerrar sesión">
-            <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M6 3H3v12h3M12 13l4-4-4-4M16 9H7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-          </button>
+        <div style={s.userRow}>
+          <span style={{fontSize: '13px', color: '#4b5563'}}>{usuario?.nombre}</span>
+          <button onClick={logout} style={s.logoutBtn}>Salir</button>
         </div>
       </aside>
 
       {/* Main */}
-      <main className="main-content">
-        <header className="top-bar">
-          <h1 className="page-title">
-            {activeTab === 'ingreso' && 'Registro de Ingreso'}
-            {activeTab === 'salida' && 'Registro de Salida'}
-            {activeTab === 'activos' && 'Vehículos en Parqueadero'}
-            {activeTab === 'historial' && 'Historial de Salidas'}
+      <main style={s.main}>
+        <div style={s.top}>
+          <h1 style={s.pageTitle}>
+            {activeTab === 'ingreso' && 'Registrar ingreso'}
+            {activeTab === 'salida' && 'Registrar salida'}
+            {activeTab === 'activos' && 'Vehículos en parqueadero'}
+            {activeTab === 'historial' && 'Historial de salidas'}
           </h1>
-          <div className="header-info">
-            <span className="clock mono">{horaActual.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
-            <span className="date">{horaActual.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long' })}</span>
-          </div>
-        </header>
+          <span style={{fontSize: '13px', color: '#6b7280'}}>
+            {horaActual.toLocaleDateString('es-CO', {weekday: 'long', day: 'numeric', month: 'long'})} · {horaActual.toLocaleTimeString('es-CO', {hour: '2-digit', minute: '2-digit'})}
+          </span>
+        </div>
 
         {/* INGRESO */}
         {activeTab === 'ingreso' && (
-          <div className="card animate-fade-in">
-            <div className="card-header">
-              <h3>Nuevo Ingreso</h3>
-              <span className={`badge ${tipoRegistro === 'automatico' ? 'badge-info' : 'badge-warning'}`}>{tipoRegistro === 'automatico' ? 'Automático' : 'Manual'}</span>
-            </div>
-            <form onSubmit={registrarIngreso} className="form-grid">
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end' }}>
-                <div className="input-group" style={{ flex: 1 }}>
-                  <label>Placa *</label>
-                  <input value={placaIngreso} onChange={(e) => setPlacaIngreso(e.target.value.toUpperCase())} placeholder="ABC123" maxLength={10} />
+          <div style={s.card}>
+            <form onSubmit={registrarIngreso} style={s.formGrid}>
+              <div style={s.group}>
+                <label style={s.label}>Placa</label>
+                <div style={{display: 'flex', gap: '6px'}}>
+                  <input value={placaIngreso} onChange={e => setPlacaIngreso(e.target.value.toUpperCase())} style={s.input} placeholder="ABC123" />
+                  <button type="button" onClick={() => setMostrarCamara(true)} style={s.camBtn} title="Leer placa">📷</button>
                 </div>
-                <button type="button" onClick={() => setMostrarCamara(true)} style={{ padding: '12px 16px', background: 'var(--bg-input)', color: 'var(--primary)', border: '1px solid var(--primary)', borderRadius: 'var(--radius-md)', fontWeight: 700, cursor: 'pointer', fontSize: '14px', whiteSpace: 'nowrap' }} title="Leer placa con cámara">📷 Leer</button>
               </div>
-              <div className="input-group">
-                <label>Tipo Vehículo</label>
-                <select value={tipoVehiculo} onChange={(e) => setTipoVehiculo(e.target.value)}>
+              <div style={s.group}>
+                <label style={s.label}>Tipo</label>
+                <select value={tipoVehiculo} onChange={e => setTipoVehiculo(e.target.value)} style={s.input}>
                   {tipoVehiculos.map(t => <option key={t}>{t}</option>)}
                 </select>
               </div>
-              <div className="input-group">
-                <label>Registro</label>
-                <select value={tipoRegistro} onChange={(e) => setTipoRegistro(e.target.value)}>
+              <div style={s.group}>
+                <label style={s.label}>Registro</label>
+                <select value={tipoRegistro} onChange={e => setTipoRegistro(e.target.value)} style={s.input}>
                   <option value="manual">Manual</option>
                   <option value="automatico">Automático</option>
                 </select>
               </div>
-              <button type="submit" className="btn-primary" disabled={loading} style={{alignSelf: 'flex-end'}}>
-                {loading ? 'Registrando...' : 'Registrar Ingreso'}
+              <button type="submit" disabled={loading} style={s.btn}>
+                {loading ? 'Registrando...' : 'Registrar'}
               </button>
             </form>
           </div>
@@ -285,79 +189,84 @@ export default function OperarioDashboard() {
 
         {/* SALIDA */}
         {activeTab === 'salida' && (
-          <div className="card animate-fade-in">
-            <div className="card-header"><h3>Procesar Salida</h3></div>
-            <div className="salida-search sugerencias-container" style={{ position: 'relative' }}>
-              <div style={{ flex: 1, position: 'relative' }}>
-                <input 
-                  value={placaSalida} 
-                  onChange={(e) => { setPlacaSalida(e.target.value.toUpperCase()); setCalculoSalida(null); filtrarPlacas(e.target.value); }} 
-                  onFocus={() => { if (ingresos.length > 0 && placaSalida.length >= 1) setMostrarSugerencias(true); }}
-                  placeholder="Buscar placa..." 
-                  style={{ width: '100%' }}
+          <div style={s.card}>
+            <div className="sug-container" style={{position: 'relative', marginBottom: '16px'}}>
+              <div style={{display: 'flex', gap: '8px'}}>
+                <input
+                  value={placaSalida}
+                  onChange={e => { setPlacaSalida(e.target.value.toUpperCase()); setCalculoSalida(null); filtrarPlacas(e.target.value); }}
+                  placeholder="Buscar placa"
+                  style={{...s.input, flex: 1}}
                 />
-                {mostrarSugerencias && sugerenciasPlacas.length > 0 && (
-                  <div style={{
-                    position: 'absolute', top: '100%', left: 0, right: 0,
-                    background: 'var(--bg-elevated)', border: '1px solid var(--border-default)',
-                    borderRadius: '0 0 12px 12px', maxHeight: '200px', overflow: 'auto',
-                    zIndex: 100, boxShadow: 'var(--shadow-lg)',
-                  }}>
-                    {sugerenciasPlacas.map(ingreso => (
-                      <div
-                        key={ingreso.id}
-                        onClick={() => seleccionarPlaca(ingreso.placa)}
-                        style={{
-                          padding: '12px 16px', cursor: 'pointer',
-                          borderBottom: '1px solid var(--border-subtle)',
-                          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                        }}
-                        onMouseEnter={(e) => e.target.style.background = 'var(--bg-hover)'}
-                        onMouseLeave={(e) => e.target.style.background = 'transparent'}
-                      >
-                        <span style={{ fontWeight: 700, color: 'var(--primary)', fontFamily: 'var(--font-mono)' }}>{ingreso.placa}</span>
-                        <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                          {ingreso.tipo_vehiculo} · {ingreso.es_plan_mensual ? 'Plan' : 'Diario'} · {Math.ceil((new Date() - new Date(ingreso.fecha_ingreso)) / 3600000)}h
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                <button onClick={calcularSalida} disabled={calculando} style={s.btn}>
+                  {calculando ? '...' : 'Calcular'}
+                </button>
               </div>
-              <button onClick={calcularSalida} disabled={calculando} className="btn-search">
-                {calculando ? '...' : 'Calcular'}
-              </button>
+              {mostrarSugerencias && sugerenciasPlacas.length > 0 && (
+                <div style={s.sugDropdown}>
+                  {sugerenciasPlacas.map(i => (
+                    <div
+                      key={i.id}
+                      onClick={() => { setPlacaSalida(i.placa); setMostrarSugerencias(false); }}
+                      style={s.sugItem}
+                    >
+                      <span style={{fontWeight: 600, color: '#2563eb'}}>{i.placa}</span>
+                      <span style={{fontSize: '12px', color: '#9ca3af'}}>
+                        {i.tipo_vehiculo} · {i.es_plan_mensual ? 'Plan' : 'Diario'} · {Math.ceil((new Date() - new Date(i.fecha_ingreso)) / 3600000)}h
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {calculoSalida && (
-              <div className="calculo-result animate-slide-in">
+              <div style={s.calculoBox}>
                 {calculoSalida.tiene_plan_mensual ? (
-                  <div className="plan-badge">
-                    <span>✅ Plan Mensual Activo</span>
-                    <strong>Sin cobro</strong>
-                  </div>
+                  <div style={s.planBadge}>Plan mensual activo · Sin cobro</div>
                 ) : (
                   <>
-                    <div className="calculo-grid">
-                      <div className="calculo-stat"><span>Horas</span><strong>{calculoSalida.total_horas}</strong></div>
-                      <div className="calculo-stat"><span>Tarifa base</span><strong>${Number(calculoSalida.tarifa_primera_hora).toLocaleString()}</strong></div>
-                      <div className="calculo-stat"><span>Adicional</span><strong>${Number(calculoSalida.tarifa_hora_adicional).toLocaleString()}</strong></div>
-                      <div className="calculo-stat highlight"><span>TOTAL</span><strong>${Number(calculoSalida.total_pagar).toLocaleString()}</strong></div>
+                    <div style={s.calculoGrid}>
+                      <div style={s.calculoItem}>
+                        <div style={s.calculoLabel}>Horas</div>
+                        <div style={s.calculoValue}>{calculoSalida.total_horas}</div>
+                      </div>
+                      <div style={s.calculoItem}>
+                        <div style={s.calculoLabel}>Tarifa base</div>
+                        <div style={s.calculoValue}>${Number(calculoSalida.tarifa_primera_hora).toLocaleString()}</div>
+                      </div>
+                      <div style={s.calculoItem}>
+                        <div style={s.calculoLabel}>Adicional</div>
+                        <div style={s.calculoValue}>${Number(calculoSalida.tarifa_hora_adicional).toLocaleString()}</div>
+                      </div>
+                      <div style={{...s.calculoItem, border: '1px solid #fcd34d'}}>
+                        <div style={s.calculoLabel}>Total</div>
+                        <div style={{...s.calculoValue, color: '#d97706', fontSize: '20px'}}>${Number(calculoSalida.total_pagar).toLocaleString()}</div>
+                      </div>
                     </div>
-                    <div className="metodo-pago">
-                      <label>Método de Pago</label>
-                      <div className="metodo-grid">
-                        {metodosPago.map(m => (
-                          <button key={m.value} onClick={() => setMetodoPago(m.value)} className={`metodo-btn ${metodoPago === m.value ? 'active' : ''}`}>
-                            <span>{m.icon}</span> {m.label}
+                    <div style={s.pagoSection}>
+                      <span style={s.pagoLabel}>Método de pago</span>
+                      <div style={s.pagoGrid}>
+                        {['efectivo', 'transferencia', 'qr'].map(m => (
+                          <button
+                            key={m}
+                            onClick={() => setMetodoPago(m)}
+                            style={{
+                              ...s.pagoBtn,
+                              border: metodoPago === m ? '2px solid #2563eb' : '1px solid #e5e7eb',
+                              background: metodoPago === m ? '#dbeafe' : '#fff',
+                              color: metodoPago === m ? '#1d4ed8' : '#6b7280',
+                            }}
+                          >
+                            {m.charAt(0).toUpperCase() + m.slice(1)}
                           </button>
                         ))}
                       </div>
                     </div>
                   </>
                 )}
-                <button onClick={registrarSalida} className="btn-success-full" disabled={loading}>
-                  {loading ? 'Procesando...' : 'Confirmar y Registrar Salida'}
+                <button onClick={registrarSalida} disabled={loading} style={s.confirmBtn}>
+                  {loading ? 'Procesando...' : 'Confirmar salida'}
                 </button>
               </div>
             )}
@@ -366,77 +275,106 @@ export default function OperarioDashboard() {
 
         {/* ACTIVOS */}
         {activeTab === 'activos' && (
-          <div className="card animate-fade-in">
-            <div className="card-header">
-              <h3>Vehículos en Parqueadero</h3>
-              <span className="badge badge-primary">{ingresos.length} activos</span>
-            </div>
+          <div style={s.card}>
             {ingresos.length === 0 ? (
-              <div className="empty-state">
-                <svg width="64" height="64" viewBox="0 0 64 64" fill="none"><rect x="8" y="16" width="48" height="32" rx="4" stroke="var(--text-muted)" strokeWidth="1.5"/><path d="M22 36h20M22 42h14" stroke="var(--text-muted)" strokeWidth="1.5" strokeLinecap="round"/></svg>
-                <p>No hay vehículos en este momento</p>
+              <div style={{textAlign: 'center', padding: '40px', color: '#9ca3af'}}>
+                <p>No hay vehículos en el parqueadero</p>
               </div>
             ) : (
-              <div className="table-wrapper">
-                <table className="data-table">
-                  <thead>
-                    <tr><th>Placa</th><th>Tipo</th><th>Registro</th><th>Plan</th><th>Ingreso</th><th>Permanencia</th></tr>
-                  </thead>
-                  <tbody>
-                    {ingresos.map(ingreso => {
-                      const horas = Math.ceil((new Date() - new Date(ingreso.fecha_ingreso)) / 3600000);
-                      return (
-                        <tr key={ingreso.id}>
-                          <td className="mono font-bold" style={{color: 'var(--primary)'}}>{ingreso.placa}</td>
-                          <td>{ingreso.tipo_vehiculo}</td>
-                          <td><span className={`badge ${ingreso.tipo_registro === 'automatico' ? 'badge-info' : 'badge-warning'}`}>{ingreso.tipo_registro}</span></td>
-                          <td><span className={`badge ${ingreso.es_plan_mensual ? 'badge-success' : 'badge-default'}`}>{ingreso.es_plan_mensual ? 'Mensual' : 'Diario'}</span></td>
-                          <td className="text-muted">{new Date(ingreso.fecha_ingreso).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}</td>
-                          <td><span className={horas > 6 ? 'text-warning' : 'text-muted'}>{horas}h</span></td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+              <table style={s.table}>
+                <thead>
+                  <tr>
+                    <th style={s.th}>Placa</th>
+                    <th style={s.th}>Tipo</th>
+                    <th style={s.th}>Registro</th>
+                    <th style={s.th}>Plan</th>
+                    <th style={s.th}>Ingreso</th>
+                    <th style={s.th}>Permanencia</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {ingresos.map(i => {
+                    const h = Math.ceil((new Date() - new Date(i.fecha_ingreso)) / 3600000);
+                    return (
+                      <tr key={i.id} style={s.tr}>
+                        <td style={{fontWeight: 600, color: '#2563eb'}}>{i.placa}</td>
+                        <td>{i.tipo_vehiculo}</td>
+                        <td>
+                          <span style={{
+                            padding: '2px 8px', borderRadius: '4px', fontSize: '11px',
+                            background: i.tipo_registro === 'automatico' ? '#dbeafe' : '#fef3c7',
+                            color: i.tipo_registro === 'automatico' ? '#1d4ed8' : '#92400e',
+                          }}>
+                            {i.tipo_registro}
+                          </span>
+                        </td>
+                        <td>
+                          {i.es_plan_mensual
+                            ? <span style={{color: '#059669', fontSize: '12px', fontWeight: 500}}>Mensual</span>
+                            : <span style={{color: '#9ca3af', fontSize: '12px'}}>Diario</span>
+                          }
+                        </td>
+                        <td style={{color: '#6b7280'}}>
+                          {new Date(i.fecha_ingreso).toLocaleTimeString('es-CO', {hour: '2-digit', minute: '2-digit'})}
+                        </td>
+                        <td style={{color: h > 6 ? '#d97706' : '#6b7280', fontWeight: h > 6 ? 600 : 400}}>
+                          {h}h
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             )}
           </div>
         )}
 
         {/* HISTORIAL */}
         {activeTab === 'historial' && (
-          <div className="card animate-fade-in">
-            <div className="card-header">
-              <h3>Historial de Salidas - Hoy</h3>
-              <span className="badge badge-primary">{historial.length} salidas</span>
-            </div>
+          <div style={s.card}>
             {historial.length === 0 ? (
-              <div className="empty-state">
-                <svg width="64" height="64" viewBox="0 0 64 64" fill="none"><rect x="8" y="16" width="48" height="32" rx="4" stroke="var(--text-muted)" strokeWidth="1.5"/></svg>
+              <div style={{textAlign: 'center', padding: '40px', color: '#9ca3af'}}>
                 <p>No hay salidas registradas hoy</p>
               </div>
             ) : (
-              <div className="table-wrapper">
-                <table className="data-table">
-                  <thead>
-                    <tr><th>Placa</th><th>Tipo</th><th>Ingreso</th><th>Salida</th><th>Horas</th><th>Total</th><th>Pago</th><th>Operario</th></tr>
-                  </thead>
-                  <tbody>
-                    {historial.map(salida => (
-                      <tr key={salida.id}>
-                        <td className="mono font-bold" style={{color: 'var(--primary)'}}>{salida.placa}</td>
-                        <td>{salida.tipo_vehiculo}</td>
-                        <td className="text-muted">{new Date(salida.fecha_ingreso).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}</td>
-                        <td className="text-muted">{new Date(salida.fecha_salida).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}</td>
-                        <td>{salida.total_horas}h</td>
-                        <td style={{color: 'var(--warning)', fontWeight: 700}}>${Number(salida.total_pagar).toLocaleString()}</td>
-                        <td><span className={`badge ${salida.metodo_pago === 'efectivo' ? 'badge-success' : salida.metodo_pago === 'transferencia' ? 'badge-info' : 'badge-warning'}`}>{salida.metodo_pago}</span></td>
-                        <td className="text-muted">{salida.operario_nombre || '-'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <table style={s.table}>
+                <thead>
+                  <tr>
+                    <th style={s.th}>Placa</th>
+                    <th style={s.th}>Tipo</th>
+                    <th style={s.th}>Ingreso</th>
+                    <th style={s.th}>Salida</th>
+                    <th style={s.th}>Horas</th>
+                    <th style={s.th}>Total</th>
+                    <th style={s.th}>Pago</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {historial.map(sal => (
+                    <tr key={sal.id} style={s.tr}>
+                      <td style={{fontWeight: 600, color: '#2563eb'}}>{sal.placa}</td>
+                      <td>{sal.tipo_vehiculo}</td>
+                      <td style={{color: '#6b7280'}}>
+                        {new Date(sal.fecha_ingreso).toLocaleTimeString('es-CO', {hour: '2-digit', minute: '2-digit'})}
+                      </td>
+                      <td style={{color: '#6b7280'}}>
+                        {new Date(sal.fecha_salida).toLocaleTimeString('es-CO', {hour: '2-digit', minute: '2-digit'})}
+                      </td>
+                      <td>{sal.total_horas}h</td>
+                      <td style={{fontWeight: 600}}>${Number(sal.total_pagar).toLocaleString()}</td>
+                      <td>
+                        <span style={{
+                          padding: '2px 8px', borderRadius: '4px', fontSize: '11px',
+                          background: sal.metodo_pago === 'efectivo' ? '#d1fae5' : sal.metodo_pago === 'transferencia' ? '#dbeafe' : '#fef3c7',
+                          color: sal.metodo_pago === 'efectivo' ? '#065f46' : sal.metodo_pago === 'transferencia' ? '#1e40af' : '#92400e',
+                        }}>
+                          {sal.metodo_pago}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             )}
           </div>
         )}
@@ -444,99 +382,110 @@ export default function OperarioDashboard() {
 
       {mostrarCamara && (
         <CamaraPlaca
-          onPlacaDetectada={(placa) => {
-            setPlacaIngreso(placa);
-            setMostrarCamara(false);
-            toast.success(`Placa detectada: ${placa}`);
-          }}
+          onPlacaDetectada={placa => { setPlacaIngreso(placa); setMostrarCamara(false); toast.success(`Placa: ${placa}`); }}
           onClose={() => setMostrarCamara(false)}
         />
       )}
-
-      <style>{`
-        .dashboard-layout { display: flex; min-height: 100vh; }
-        .sidebar { width: 280px; background: var(--bg-elevated); border-right: 1px solid var(--border-subtle); display: flex; flex-direction: column; padding: 20px; position: sticky; top: 0; height: 100vh; }
-        .sidebar-brand { display: flex; align-items: center; gap: 12px; padding-bottom: 24px; border-bottom: 1px solid var(--border-subtle); margin-bottom: 20px; }
-        .brand-icon { animation: glow 3s ease-in-out infinite; }
-        .sidebar-nav { display: flex; flex-direction: column; gap: 4px; flex: 1; }
-        .nav-item { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: var(--radius-md); border: none; background: transparent; color: var(--text-muted); font-size: 14px; font-weight: 500; cursor: pointer; transition: all var(--transition-fast); font-family: var(--font-family); position: relative; }
-        .nav-item:hover { background: var(--bg-hover); color: var(--text-secondary); }
-        .nav-item.active { background: rgba(33,150,243,0.08); color: var(--primary); font-weight: 600; }
-        .nav-badge { position: absolute; right: 12px; background: var(--primary); color: #000; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: var(--radius-full); min-width: 22px; text-align: center; }
-        .cupos-widget { margin-top: auto; margin-bottom: 16px; padding: 16px; background: var(--bg-surface); border-radius: var(--radius-lg); border: 1px solid var(--border-subtle); }
-        .cupos-header { display: flex; justify-content: space-between; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 10px; }
-        .cupos-bar { height: 4px; background: var(--border-default); border-radius: 2px; overflow: hidden; margin-bottom: 8px; }
-        .cupos-fill { height: 100%; border-radius: 2px; background: var(--success); transition: width 0.5s; }
-        .cupos-fill.warning { background: var(--warning); }
-        .cupos-fill.danger { background: var(--danger); animation: pulse 1.5s ease-in-out infinite; }
-        .cupos-footer { display: flex; justify-content: space-between; font-size: 12px; font-weight: 600; }
-        .sidebar-footer { display: flex; justify-content: space-between; align-items: center; padding-top: 16px; border-top: 1px solid var(--border-subtle); }
-        .user-info { display: flex; align-items: center; gap: 10px; }
-        .user-avatar { width: 36px; height: 36px; border-radius: var(--radius-full); background: var(--primary); color: #000; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 16px; }
-        .user-name { font-size: 13px; font-weight: 600; color: var(--text-primary); }
-        .user-role { font-size: 11px; color: var(--text-muted); }
-        .btn-logout { background: transparent; border: none; color: var(--text-muted); cursor: pointer; padding: 8px; border-radius: var(--radius-md); transition: all var(--transition-fast); }
-        .btn-logout:hover { background: var(--danger-bg); color: var(--danger); }
-        .main-content { flex: 1; padding: 32px; overflow: auto; }
-        .top-bar { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 32px; flex-wrap: wrap; gap: 16px; }
-        .page-title { font-size: 24px; font-weight: 800; color: var(--text-primary); letter-spacing: -0.3px; }
-        .header-info { text-align: right; }
-        .clock { display: block; font-size: 28px; font-weight: 700; color: var(--primary); }
-        .date { font-size: 13px; color: var(--text-muted); text-transform: capitalize; }
-        .card { background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-radius: var(--radius-xl); padding: 28px; margin-bottom: 24px; box-shadow: var(--shadow-md); }
-        .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
-        .card-header h3 { font-size: 18px; font-weight: 700; }
-        .badge { padding: 4px 12px; border-radius: var(--radius-full); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
-        .badge-info { background: var(--info-bg); color: var(--info); }
-        .badge-warning { background: var(--warning-bg); color: var(--warning); }
-        .badge-success { background: var(--success-bg); color: var(--success); }
-        .badge-primary { background: rgba(33,150,243,0.1); color: var(--primary); }
-        .badge-default { background: var(--bg-surface); color: var(--text-muted); }
-        .form-grid { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 16px; align-items: end; }
-        @media (max-width: 900px) { .form-grid { grid-template-columns: 1fr 1fr; } }
-        @media (max-width: 600px) { .form-grid { grid-template-columns: 1fr; } }
-        .input-group { display: flex; flex-direction: column; gap: 6px; }
-        .input-group label { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; }
-        .input-group input, .input-group select { padding: 12px 16px; background: var(--bg-input); border: 1px solid var(--border-default); border-radius: var(--radius-md); color: var(--text-primary); font-size: 15px; font-family: var(--font-family); outline: none; transition: all var(--transition-fast); }
-        .input-group input:focus, .input-group select:focus { border-color: var(--border-primary); box-shadow: 0 0 0 3px rgba(33,150,243,0.06); }
-        .btn-primary { padding: 12px 28px; background: var(--primary); color: #fff; border: none; border-radius: var(--radius-md); font-size: 14px; font-weight: 700; cursor: pointer; font-family: var(--font-family); transition: all var(--transition-fast); white-space: nowrap; }
-        .btn-primary:hover { background: var(--primary-dark); }
-        .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
-        .salida-search { display: flex; gap: 12px; margin-bottom: 24px; }
-        .salida-search input { flex: 1; padding: 14px 18px; background: var(--bg-input); border: 1px solid var(--border-default); border-radius: var(--radius-md); color: var(--text-primary); font-size: 16px; font-family: var(--font-family); outline: none; }
-        .salida-search input:focus { border-color: var(--border-primary); }
-        .btn-search { padding: 14px 24px; background: var(--primary); color: #fff; border: none; border-radius: var(--radius-md); font-weight: 700; cursor: pointer; font-family: var(--font-family); }
-        .calculo-result { margin-top: 24px; padding: 24px; background: var(--bg-surface); border-radius: var(--radius-lg); border: 1px solid var(--border-default); }
-        .plan-badge { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; background: var(--success-bg); border-radius: var(--radius-md); color: var(--success); font-weight: 600; margin-bottom: 16px; }
-        .calculo-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
-        @media (max-width: 600px) { .calculo-grid { grid-template-columns: 1fr 1fr; } }
-        .calculo-stat { padding: 14px; background: var(--bg-card); border-radius: var(--radius-md); text-align: center; }
-        .calculo-stat span { display: block; font-size: 11px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 4px; }
-        .calculo-stat strong { font-size: 20px; color: var(--text-primary); font-family: var(--font-mono); }
-        .calculo-stat.highlight { background: rgba(255,215,64,0.08); border: 1px solid rgba(255,215,64,0.2); }
-        .calculo-stat.highlight strong { color: var(--warning); font-size: 24px; }
-        .metodo-pago { margin-bottom: 20px; }
-        .metodo-pago label { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 8px; }
-        .metodo-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-        .metodo-btn { padding: 12px; background: var(--bg-card); border: 2px solid var(--border-default); border-radius: var(--radius-md); color: var(--text-secondary); cursor: pointer; font-size: 13px; font-weight: 600; font-family: var(--font-family); transition: all var(--transition-fast); }
-        .metodo-btn:hover { background: var(--bg-hover); }
-        .metodo-btn.active { border-color: var(--primary); background: rgba(33,150,243,0.06); color: var(--primary); }
-        .btn-success-full { width: 100%; padding: 16px; background: var(--success); color: #000; border: none; border-radius: var(--radius-md); font-size: 15px; font-weight: 700; cursor: pointer; font-family: var(--font-family); transition: all var(--transition-fast); }
-        .btn-success-full:hover { box-shadow: 0 0 20px rgba(0,230,118,0.3); }
-        .btn-success-full:disabled { opacity: 0.5; cursor: not-allowed; }
-        .empty-state { text-align: center; padding: 60px 20px; color: var(--text-muted); }
-        .empty-state svg { margin-bottom: 16px; opacity: 0.5; }
-        .table-wrapper { overflow-x: auto; }
-        .data-table { width: 100%; border-collapse: collapse; }
-        .data-table th { padding: 12px 16px; text-align: left; font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1.5px; border-bottom: 1px solid var(--border-default); background: var(--bg-surface); }
-        .data-table td { padding: 14px 16px; border-bottom: 1px solid var(--border-subtle); font-size: 14px; }
-        .data-table tr:hover td { background: var(--bg-hover); }
-        .font-bold { font-weight: 700; }
-        .text-muted { color: var(--text-muted); }
-        .text-success { color: var(--success); }
-        .text-warning { color: var(--warning); }
-        .text-danger { color: var(--danger); }
-      `}</style>
     </div>
   );
 }
+
+const s = {
+  layout: { display: 'flex', minHeight: '100vh', background: '#f8f9fa' },
+
+  // Sidebar
+  sidebar: {
+    width: '260px', background: '#fff', borderRight: '1px solid #e5e7eb',
+    padding: '24px 20px', display: 'flex', flexDirection: 'column', gap: '20px',
+  },
+  brand: { paddingBottom: '20px', borderBottom: '1px solid #e5e7eb' },
+  brandName: { fontSize: '18px', fontWeight: 700, color: '#1a1a2e', margin: 0 },
+  brandSub: { fontSize: '11px', color: '#9ca3af', fontWeight: 500 },
+  nav: { display: 'flex', flexDirection: 'column', gap: '2px', flex: 1 },
+  navBtn: {
+    padding: '10px 12px', border: 'none', background: 'transparent', textAlign: 'left',
+    fontSize: '14px', color: '#4b5563', borderRadius: '6px', cursor: 'pointer',
+    fontFamily: 'Inter, sans-serif', transition: '150ms',
+  },
+  navBtnActive: { background: '#eff6ff', color: '#2563eb', fontWeight: 600 },
+  cupos: { padding: '14px', background: '#f9fafb', borderRadius: '8px' },
+  cuposRow: { display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontWeight: 600, color: '#6b7280', marginBottom: '6px' },
+  mono: { fontFamily: 'SF Mono, Menlo, Monaco, monospace' },
+  bar: { height: '4px', background: '#e5e7eb', borderRadius: '2px', marginBottom: '6px', overflow: 'hidden' },
+  barFill: { height: '100%', borderRadius: '2px', transition: 'width 0.5s' },
+  userRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '16px', borderTop: '1px solid #e5e7eb' },
+  logoutBtn: { background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', fontSize: '13px', fontWeight: 500 },
+
+  // Main
+  main: { flex: 1, padding: '32px', overflow: 'auto' },
+  top: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '28px', flexWrap: 'wrap', gap: '12px' },
+  pageTitle: { fontSize: '22px', fontWeight: 700, color: '#1a1a2e', letterSpacing: '-0.3px', margin: 0 },
+
+  // Card
+  card: { background: '#fff', borderRadius: '10px', padding: '24px', border: '1px solid #e5e7eb', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' },
+
+  // Form
+  formGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: '14px', alignItems: 'end' },
+  group: { display: 'flex', flexDirection: 'column', gap: '5px' },
+  label: { fontSize: '12px', fontWeight: 600, color: '#4b5563', textTransform: 'uppercase', letterSpacing: '0.3px' },
+  input: {
+    padding: '9px 12px', border: '1px solid #e5e7eb', borderRadius: '6px',
+    fontSize: '14px', color: '#1a1a2e', fontFamily: 'Inter, sans-serif', outline: 'none',
+    background: '#fff', width: '100%',
+  },
+  camBtn: {
+    padding: '9px 12px', background: '#fff', border: '1px solid #d1d5db', borderRadius: '6px',
+    cursor: 'pointer', fontSize: '16px',
+  },
+  btn: {
+    padding: '9px 18px', background: '#2563eb', color: '#fff', border: 'none',
+    borderRadius: '6px', fontSize: '14px', fontWeight: 600, cursor: 'pointer',
+    fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap', transition: '150ms',
+  },
+
+  // Sugerencias
+  sugDropdown: {
+    position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff',
+    border: '1px solid #e5e7eb', borderRadius: '0 0 8px 8px', zIndex: 50,
+    boxShadow: '0 4px 6px rgba(0,0,0,0.04)', maxHeight: '200px', overflow: 'auto',
+  },
+  sugItem: {
+    padding: '10px 14px', cursor: 'pointer', borderBottom: '1px solid #f3f4f6',
+    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+  },
+
+  // Calculo
+  calculoBox: { background: '#f9fafb', padding: '20px', borderRadius: '8px' },
+  planBadge: {
+    padding: '12px', background: '#d1fae5', borderRadius: '6px',
+    color: '#065f46', fontWeight: 600, marginBottom: '12px', textAlign: 'center',
+  },
+  calculoGrid: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', marginBottom: '16px' },
+  calculoItem: {
+    textAlign: 'center', padding: '12px 8px', background: '#fff',
+    borderRadius: '6px', border: '1px solid #e5e7eb',
+  },
+  calculoLabel: { fontSize: '11px', color: '#9ca3af', textTransform: 'uppercase', marginBottom: '4px' },
+  calculoValue: { fontSize: '16px', fontWeight: 700, color: '#1a1a2e', fontFamily: 'SF Mono, Menlo, Monaco, monospace' },
+  pagoSection: { marginBottom: '12px' },
+  pagoLabel: { fontSize: '12px', fontWeight: 600, color: '#4b5563', display: 'block', marginBottom: '6px' },
+  pagoGrid: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' },
+  pagoBtn: {
+    padding: '8px', borderRadius: '6px', cursor: 'pointer',
+    fontSize: '13px', fontWeight: 600, fontFamily: 'Inter, sans-serif', transition: '150ms',
+  },
+  confirmBtn: {
+    width: '100%', padding: '10px', background: '#059669', color: '#fff',
+    border: 'none', borderRadius: '6px', fontWeight: 600, fontSize: '14px',
+    cursor: 'pointer', fontFamily: 'Inter, sans-serif',
+  },
+
+  // Table
+  table: { width: '100%', borderCollapse: 'collapse' },
+  th: {
+    padding: '10px 14px', textAlign: 'left', fontSize: '11px', fontWeight: 600,
+    color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.5px',
+    borderBottom: '1px solid #e5e7eb',
+  },
+  tr: { borderBottom: '1px solid #f3f4f6' },
+};
